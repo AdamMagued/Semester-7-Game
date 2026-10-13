@@ -20,10 +20,15 @@ class playerClass: public EntityClass{
     playerRange playerType;
     playerState playerStatus;
 
+<<<<<<< HEAD
     int playerCost;
     int playerDurability; //how many hits the player can take before defeat
 
     fightStrat* strat;
+=======
+    int cost; 
+   
+>>>>>>> 7faf45451a060ba6f524cbd37b77f5165fc5cda1
 
     void setStrat(fightStrat* s) {
         strat = s;

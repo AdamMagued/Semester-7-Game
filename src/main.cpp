@@ -2,6 +2,7 @@
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include "renderer/Shader.cpp"
 
 const char* vertexShaderSrc = R"(
 #version 330 core
@@ -18,21 +19,6 @@ void main() {
     FragColor = vec4(1.0, 0.5, 0.2, 1.0);
 }
 )";
-
-GLuint compileShader(GLenum type, const char* src) {
-    GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &src, nullptr);
-    glCompileShader(shader);
-
-    int success;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        char log[512];
-        glGetShaderInfoLog(shader, 512, nullptr, log);
-        std::cerr << "Shader compile error:\n" << log << "\n";
-    }
-    return shader;
-}
 
 int main() {
     if (!glfwInit()) {

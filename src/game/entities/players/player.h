@@ -1,6 +1,7 @@
 #pragma once //this tells c++ to only read this file once, even if it is included multiple times
 
 #include "../base/entities.h"
+#include <fightStrat.h>
 
 class playerClass: public EntityClass{
     public:
@@ -22,7 +23,18 @@ class playerClass: public EntityClass{
     int playerCost;
     int playerDurability; //how many hits the player can take before defeat
 
+    fightStrat* strat;
 
+    void setStrat(fightStrat* s) {
+        strat = s;
+    }
+
+    void doAttack() {
+        if (strat != nullptr) {
+            strat->attack(damage);
+        }
+    }
+    
 
 
 };

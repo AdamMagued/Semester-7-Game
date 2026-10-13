@@ -6,6 +6,16 @@ class EntityClass{
     int lane;
     int health;
     int damage;
+    float speed;
+
+    enum healthState{
+        HEALTHY,
+        INJURED,
+        HEAVILY_INJURED,
+        CRITICAL,
+        DEAD
+    
+    };
 
 
 };

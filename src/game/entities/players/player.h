@@ -19,9 +19,8 @@ class playerClass: public EntityClass{
     playerRange playerType;
     playerState playerStatus;
 
-    int playerCost;
-    int playerDurability; //how many hits the player can take before defeat
-
+    int cost; 
+   
 
 
 

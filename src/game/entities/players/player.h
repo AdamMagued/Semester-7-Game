@@ -1,4 +1,6 @@
-#include "entity.h"
+#pragma once //this tells c++ to only read this file once, even if it is included multiple times
+
+#include "../base/entities.h"
 
 class playerClass: public EntityClass{
     public:
@@ -14,11 +16,12 @@ class playerClass: public EntityClass{
         defeated
     };
 
-    int playerCost;
+
+
     playerRange playerType;
-    int lane;
-    int health; 
-    int damage;
+    playerState playerStatus;
+
+    int playerCost;
     int playerDurability; //how many hits the player can take before defeat
 
 
@@ -28,4 +31,4 @@ class playerClass: public EntityClass{
 
 
 
-}
+};

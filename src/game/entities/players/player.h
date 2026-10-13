@@ -11,7 +11,7 @@ class playerClass: public EntityClass{
     enum playerState{
         vulnerable,
         invulnerable,
-        dead
+        defeated
     };
 
     int playerCost;
@@ -19,6 +19,8 @@ class playerClass: public EntityClass{
     int lane;
     int health; 
     int damage;
+    int playerDurability; //how many hits the player can take before defeat
+
 
 
 

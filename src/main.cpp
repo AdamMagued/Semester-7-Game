@@ -2,20 +2,45 @@
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <vector>
+
+void addRectangle(std::vector<float>& vertices, float left, float top,
+                  float right, float bottom, float red, float green, float blue) {
+    const float rectangle[] = {
+        left, top, 0.0f, red, green, blue,
+        right, top, 0.0f, red, green, blue,
+        right, bottom, 0.0f, red, green, blue,
+        left, top, 0.0f, red, green, blue,
+        right, bottom, 0.0f, red, green, blue,
+        left, bottom, 0.0f, red, green, blue
+    };
+    vertices.insert(vertices.end(), rectangle, rectangle + 36);
+}
+
+void framebufferSizeCallback(GLFWwindow*, int width, int height) {
+    glViewport(0, 0, width, height);
+}
 
 const char* vertexShaderSrc = R"(
 #version 330 core
 layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aColor;
+
+out vec3 vertexColor;
+
 void main() {
     gl_Position = vec4(aPos, 1.0);
+    vertexColor = aColor;
 }
 )";
 
 const char* fragmentShaderSrc = R"(
 #version 330 core
+in vec3 vertexColor;
 out vec4 FragColor;
+
 void main() {
-    FragColor = vec4(1.0, 0.5, 0.2, 1.0);
+    FragColor = vec4(vertexColor, 1.0);
 }
 )";
 
@@ -58,7 +83,11 @@ int main() {
         return -1;
     }
 
-    glViewport(0, 0, 800, 600);
+    glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+    int framebufferWidth;
+    int framebufferHeight;
+    glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+    framebufferSizeCallback(window, framebufferWidth, framebufferHeight);
 
     // --- Shader program ---
     GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSrc);
@@ -80,12 +109,18 @@ int main() {
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    // --- Triangle data ---
-    float vertices[] = {
-        -0.5f, -0.5f, 0.0f,
-         0.5f, -0.5f, 0.0f,
-         0.0f,  0.5f, 0.0f
-    };
+    // --- Playfield rectangles ---
+    std::vector<float> vertices;
+    addRectangle(vertices, -0.82f,  0.62f, 0.98f,  0.20f, 0.2f, 0.6f, 0.2f);
+    addRectangle(vertices, -0.82f,  0.20f, 0.98f, -0.28f, 0.2f, 0.6f, 0.2f);
+    addRectangle(vertices, -0.82f, -0.28f, 0.98f, -0.82f, 0.2f, 0.6f, 0.2f);
+    addRectangle(vertices, -0.80f,  0.205f, 0.98f,  0.195f, 0.08f, 0.32f, 0.12f);
+    addRectangle(vertices, -0.80f, -0.275f, 0.98f, -0.285f, 0.08f, 0.32f, 0.12f);
+    addRectangle(vertices, -0.96f,  0.66f, -0.80f, -0.82f, 0.15f, 0.35f, 0.75f);
+    addRectangle(vertices, -0.97f,  0.70f, -0.79f,  0.58f, 0.08f, 0.20f, 0.48f); // roof
+    addRectangle(vertices, -0.94f,  0.43f, -0.90f,  0.33f, 0.65f, 0.85f, 1.0f);  // left window
+    addRectangle(vertices, -0.86f,  0.43f, -0.82f,  0.33f, 0.65f, 0.85f, 1.0f);  // right window
+    addRectangle(vertices, -0.90f, -0.82f, -0.85f, -0.53f, 0.08f, 0.20f, 0.48f); // doorway
 
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
@@ -94,22 +129,59 @@ int main() {
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    // Each vertex has 6 floats: 3 for position and 3 for color.
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(
+        1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
+        (void*)(3 * sizeof(float))
+    );
+    glEnableVertexAttribArray(1);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    const size_t boardSize = vertices.size();
+
     // --- Render loop ---
     while (!glfwWindowShouldClose(window)) {
-        glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+        // Remove last frame's highlight before checking the mouse again.
+        vertices.resize(boardSize);
+
+        double mouseX, mouseY;
+        int windowWidth, windowHeight;
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+        glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+        float x = 2.0f * static_cast<float>(mouseX) / windowWidth - 1.0f;
+        float y = 1.0f - 2.0f * static_cast<float>(mouseY) / windowHeight;
+
+        int hoveredLane = -1;
+        if (x >= -0.80f && x <= 0.98f) {
+            if (y <= 0.62f && y >= 0.20f) hoveredLane = 0;
+            else if (y < 0.20f && y >= -0.28f) hoveredLane = 1;
+            else if (y < -0.28f && y >= -0.82f) hoveredLane = 2;
+        }
+
+        if (hoveredLane == 0)
+            addRectangle(vertices, -0.80f, 0.62f, 0.98f, 0.20f, 0.32f, 0.78f, 0.30f);
+        else if (hoveredLane == 1)
+            addRectangle(vertices, -0.80f, 0.20f, 0.98f, -0.28f, 0.32f, 0.78f, 0.30f);
+        else if (hoveredLane == 2)
+            addRectangle(vertices, -0.80f, -0.28f, 0.98f, -0.82f, 0.32f, 0.78f, 0.30f);
+
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
+
+        glClearColor(0.15f, 0.35f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size() / 6));
 
         glfwSwapBuffers(window);
         glfwPollEvents();

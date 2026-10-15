@@ -128,9 +128,6 @@ int main() {
     // Test player placed on top lane (lane 0)
     melee_player player1;
     player1.setLane(0);
-    addRectangle(vertices, player1.x - 0.04f, player1.y + 0.06f,
-                           player1.x + 0.04f, player1.y - 0.06f,
-                           0.9f, 0.2f, 0.2f); // Red player rectangle
 
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
@@ -182,6 +179,14 @@ int main() {
             addRectangle(vertices, -0.80f, 0.20f, 0.98f, -0.28f, 0.32f, 0.78f, 0.30f);
         else if (hoveredLane == 2)
             addRectangle(vertices, -0.80f, -0.28f, 0.98f, -0.82f, 0.32f, 0.78f, 0.30f);
+
+        // Move the player to the right each frame
+        player1.move();
+
+        // Draw the player at their updated position
+        addRectangle(vertices, player1.x - 0.04f, player1.y + 0.06f,
+                               player1.x + 0.04f, player1.y - 0.06f,
+                               0.9f, 0.2f, 0.2f); // Red player box
 
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);

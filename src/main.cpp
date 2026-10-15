@@ -36,13 +36,26 @@ int main() {
 
     {
         Renderer renderer;
-        Enemy enemy(1);
+        Enemy easyEnemy(1, EASY);
+        Enemy mediumEnemy(2, MEDIUM);
+        Enemy hardEnemy(3, HARD);
+        double lastTime = glfwGetTime();
 
         while (!glfwWindowShouldClose(window)) {
+            double now = glfwGetTime();
+            float dt = (float)(now - lastTime);
+            lastTime = now;
+
             glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
 
-            enemy.draw(renderer);
+            easyEnemy.update(dt);
+            mediumEnemy.update(dt);
+            hardEnemy.update(dt);
+
+            easyEnemy.draw(renderer);
+            mediumEnemy.draw(renderer);
+            hardEnemy.draw(renderer);
 
             glfwSwapBuffers(window);
             glfwPollEvents();

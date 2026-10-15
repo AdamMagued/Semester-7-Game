@@ -195,12 +195,23 @@ int main() {
             wasMouseDown = false; // Reset on release
         }
 
+        // Check keyboard for Jump (W) and Duck (S)
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+            player1.jump();
+        } else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+            player1.duck();
+        } else {
+            player1.stand();
+        }
+
         // Only move and draw the player IF they have been spawned!
         if (isSpawned == true) {
             player1.move();
+            player1.updateJump(); // Handle jump countdown (Dino game style)
 
-            addRectangle(vertices, player1.x - 0.04f, player1.y + 0.06f,
-                                   player1.x + 0.04f, player1.y - 0.06f,
+            float drawY = player1.y + player1.yOffset;
+            addRectangle(vertices, player1.x - 0.04f, drawY + 0.06f,
+                                   player1.x + 0.04f, drawY - 0.06f,
                                    0.9f, 0.2f, 0.2f); // Red player box
         }
 

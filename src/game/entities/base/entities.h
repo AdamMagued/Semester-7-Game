@@ -8,14 +8,22 @@ class EntityClass{
     int damage;
     float speed;
 
-    enum healthState{
-        HEALTHY,
-        INJURED,
-        HEAVILY_INJURED,
-        CRITICAL,
-        DEAD
-    
-    };
+    float x = 0.0f;
+    float y = 0.0f;
+    float width = 0.08f;
+    float height = 0.08f;
+
+    void setLane(int chosenLane) {
+        lane = chosenLane;
+        x = -0.75f; // Leftmost position of the lane
+        if (lane == 0) {
+            y = 0.41f;       // Top lane
+        } else if (lane == 1) {
+            y = -0.04f;      // Middle lane
+        } else if (lane == 2) {
+            y = -0.55f;      // Bottom lane
+        }
+    }
 
 
 };

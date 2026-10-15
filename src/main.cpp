@@ -3,6 +3,9 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
+#include "game/entities/players/melee/melee_player.h"
+#include "game/entities/players/defense/defense_player.h"
+#include "game/entities/players/ranged/ranged_player.h"
 
 void addRectangle(std::vector<float>& vertices, float left, float top,
                   float right, float bottom, float red, float green, float blue) {
@@ -121,6 +124,13 @@ int main() {
     addRectangle(vertices, -0.94f,  0.43f, -0.90f,  0.33f, 0.65f, 0.85f, 1.0f);  // left window
     addRectangle(vertices, -0.86f,  0.43f, -0.82f,  0.33f, 0.65f, 0.85f, 1.0f);  // right window
     addRectangle(vertices, -0.90f, -0.82f, -0.85f, -0.53f, 0.08f, 0.20f, 0.48f); // doorway
+
+    // Test player placed on top lane (lane 0)
+    melee_player player1;
+    player1.setLane(0);
+    addRectangle(vertices, player1.x - 0.04f, player1.y + 0.06f,
+                           player1.x + 0.04f, player1.y - 0.06f,
+                           0.9f, 0.2f, 0.2f); // Red player rectangle
 
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);

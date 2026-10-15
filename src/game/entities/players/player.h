@@ -26,26 +26,38 @@ class playerClass: public EntityClass{
     float yOffset = 0.0f; // Height adjustment for jump and duck
     bool isJumping = false;
     int jumpTimer = 0;
+    int jumpCooldown = 0; // Delay before the player can jump again
+    int crouchDelayTimer = 0; // Delay before crouching when landing from mid-air
 
     void jump() {
-        if (playerType != DEFENSE && isJumping == false) {
+        if (playerType != DEFENSE && isJumping == false && jumpCooldown <= 0) {
             isJumping = true;
-            jumpTimer = 25; // Hang time in air (about 0.4 seconds)
+            jumpTimer = 45; // Hang time in air (about 0.75 seconds)
             yOffset = 0.14f; // Hop up in the air
+            crouchDelayTimer = 0;
         }
     }
 
     void duck() {
         if (playerType != DEFENSE) {
-            isJumping = false; // Cancel jump mid-air (fast-drop!)
-            jumpTimer = 0;
-            yOffset = -0.06f; // Crouch down low immediately
+            if (isJumping == true) {
+                // If mid-air, drop to standing normally first
+                isJumping = false;
+                jumpTimer = 0;
+                jumpCooldown = 20;
+                yOffset = 0.0f; // Land to standing normally first
+                crouchDelayTimer = 8; // Short delay before crouching (about 0.13 seconds)
+            } else if (crouchDelayTimer <= 0) {
+                // Grounded and delay passed: crouch down low
+                yOffset = -0.06f;
+            }
         }
     }
 
     void stand() {
         if (isJumping == false) {
             yOffset = 0.0f; // Normal standing position
+            crouchDelayTimer = 0;
         }
     }
 
@@ -56,7 +68,14 @@ class playerClass: public EntityClass{
             if (jumpTimer <= 0) {
                 isJumping = false; // Landed on floor!
                 yOffset = 0.0f;
+                jumpCooldown = 20; // Short ground delay before next jump (about 0.3 seconds)
             }
+        } else if (jumpCooldown > 0) {
+            jumpCooldown = jumpCooldown - 1; // Count down the ground delay
+        }
+
+        if (crouchDelayTimer > 0) {
+            crouchDelayTimer = crouchDelayTimer - 1;
         }
     }
 

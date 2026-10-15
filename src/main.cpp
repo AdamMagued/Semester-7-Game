@@ -125,9 +125,10 @@ int main() {
     addRectangle(vertices, -0.86f,  0.43f, -0.82f,  0.33f, 0.65f, 0.85f, 1.0f);  // right window
     addRectangle(vertices, -0.90f, -0.82f, -0.85f, -0.53f, 0.08f, 0.20f, 0.48f); // doorway
 
-    // Test player placed on top lane (lane 0)
+    // Player setup
     melee_player player1;
-    player1.setLane(0);
+    bool isSpawned = false;      // Player has not been placed yet
+    bool wasMouseDown = false;   // To detect a fresh mouse click
 
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
@@ -180,13 +181,28 @@ int main() {
         else if (hoveredLane == 2)
             addRectangle(vertices, -0.80f, -0.28f, 0.98f, -0.82f, 0.32f, 0.78f, 0.30f);
 
-        // Move the player to the right each frame
-        player1.move();
+        // Click mouse to spawn player on hovered lane!
+        int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+        if (mouseState == GLFW_PRESS && wasMouseDown == false) {
+            wasMouseDown = true; // Registered click
 
-        // Draw the player at their updated position
-        addRectangle(vertices, player1.x - 0.04f, player1.y + 0.06f,
-                               player1.x + 0.04f, player1.y - 0.06f,
-                               0.9f, 0.2f, 0.2f); // Red player box
+            if (hoveredLane != -1) {
+                player1.setLane(hoveredLane);
+                isSpawned = true;
+            }
+        }
+        if (mouseState == GLFW_RELEASE) {
+            wasMouseDown = false; // Reset on release
+        }
+
+        // Only move and draw the player IF they have been spawned!
+        if (isSpawned == true) {
+            player1.move();
+
+            addRectangle(vertices, player1.x - 0.04f, player1.y + 0.06f,
+                                   player1.x + 0.04f, player1.y - 0.06f,
+                                   0.9f, 0.2f, 0.2f); // Red player box
+        }
 
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);

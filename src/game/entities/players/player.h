@@ -36,8 +36,10 @@ class playerClass: public EntityClass{
     }
 
     void duck() {
-        if (playerType != DEFENSE && isJumping == false) {
-            yOffset = -0.06f; // Crouch down low while held
+        if (playerType != DEFENSE) {
+            isJumping = false; // Cancel jump mid-air (fast-drop!)
+            jumpTimer = 0;
+            yOffset = -0.06f; // Crouch down low immediately
         }
     }
 

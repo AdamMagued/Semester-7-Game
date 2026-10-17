@@ -31,6 +31,52 @@ struct Projectile {
     bool active;
 };
 
+// Dead-simple 3x5 pixel font for plaintext rendering
+static const char* getGlyph(char c) {
+    switch (c) {
+        case '0': return "###" "#.#" "#.#" "#.#" "###";
+        case '1': return ".#." "##." ".#." ".#." "###";
+        case '2': return "###" "..#" "###" "#.." "###";
+        case '3': return "###" "..#" "###" "..#" "###";
+        case 'A': return "###" "#.#" "###" "#.#" "#.#";
+        case 'C': return "###" "#.." "#.." "#.." "###";
+        case 'D': return "##." "#.#" "#.#" "#.#" "##.";
+        case 'E': return "###" "#.." "###" "#.." "###";
+        case 'F': return "###" "#.." "###" "#.." "#..";
+        case 'G': return "###" "#.." "#.#" "#.#" "###";
+        case 'L': return "#.." "#.." "#.." "#.." "###";
+        case 'M': return "#.#" "###" "#.#" "#.#" "#.#";
+        case 'N': return "#.#" "###" "###" "#.#" "#.#";
+        case 'O': return "###" "#.#" "#.#" "#.#" "###";
+        case 'R': return "###" "#.#" "###" "#.#" "#.#";
+        case 'S': return "###" "#.." "###" "..#" "###";
+        case 'T': return "###" ".#." ".#." ".#." ".#.";
+        default:  return "..." "..." "..." "..." "...";
+    }
+}
+
+static void drawText(std::vector<float>& vertices, const std::string& text, float startX, float startY, float pixelSize, float r = 1.0f, float g = 1.0f, float b = 1.0f) {
+    float curX = startX;
+    for (size_t i = 0; i < text.size(); i++) {
+        char c = text[i];
+        if (c == ' ') {
+            curX = curX + pixelSize * 3.0f;
+            continue;
+        }
+        const char* glyph = getGlyph(c);
+        for (int row = 0; row < 5; row++) {
+            for (int col = 0; col < 3; col++) {
+                if (glyph[row * 3 + col] == '#') {
+                    float px = curX + col * pixelSize;
+                    float py = startY - row * pixelSize;
+                    addRectangle(vertices, px, py, px + pixelSize, py - pixelSize, r, g, b);
+                }
+            }
+        }
+        curX = curX + pixelSize * 4.0f; // 3 pixels for character + 1 pixel gap
+    }
+}
+
 void framebufferSizeCallback(GLFWwindow*, int width, int height) {
     glViewport(0, 0, width, height);
 }
@@ -280,31 +326,40 @@ int main() {
         if (selectedPlayerType == 0) {
             addRectangle(vertices, -0.76f, 0.93f, -0.54f, 0.69f, 1.0f, 1.0f, 1.0f); // White selection border
         }
+        addRectangle(vertices, -0.75f, 0.92f, -0.55f, 0.70f, 0.15f, 0.15f, 0.18f); // Dark card base
         if (coins >= 10) {
-            addRectangle(vertices, -0.75f, 0.92f, -0.55f, 0.70f, 0.85f, 0.25f, 0.25f); // Red card (unlocked)
+            addRectangle(vertices, -0.68f, 0.83f, -0.62f, 0.77f, 0.85f, 0.25f, 0.25f); // Red preview icon
         } else {
-            addRectangle(vertices, -0.75f, 0.92f, -0.55f, 0.70f, 0.40f, 0.40f, 0.40f); // Grayscale (locked)
+            addRectangle(vertices, -0.68f, 0.83f, -0.62f, 0.77f, 0.40f, 0.40f, 0.40f); // Locked icon
         }
+        drawText(vertices, "MELEE", -0.72f, 0.90f, 0.003f, 1.0f, 1.0f, 1.0f);
+        drawText(vertices, "COST 10", -0.73f, 0.74f, 0.0028f, 1.0f, 0.9f, 0.3f);
 
         // Card 2: Ranged (Cost 20)
         if (selectedPlayerType == 1) {
             addRectangle(vertices, -0.51f, 0.93f, -0.29f, 0.69f, 1.0f, 1.0f, 1.0f); // White selection border
         }
+        addRectangle(vertices, -0.50f, 0.92f, -0.30f, 0.70f, 0.15f, 0.15f, 0.18f); // Dark card base
         if (coins >= 20) {
-            addRectangle(vertices, -0.50f, 0.92f, -0.30f, 0.70f, 0.25f, 0.45f, 0.85f); // Blue card (unlocked)
+            addRectangle(vertices, -0.43f, 0.83f, -0.37f, 0.77f, 0.25f, 0.45f, 0.85f); // Blue preview icon
         } else {
-            addRectangle(vertices, -0.50f, 0.92f, -0.30f, 0.70f, 0.40f, 0.40f, 0.40f); // Grayscale (locked)
+            addRectangle(vertices, -0.43f, 0.83f, -0.37f, 0.77f, 0.40f, 0.40f, 0.40f); // Locked icon
         }
+        drawText(vertices, "RANGED", -0.48f, 0.90f, 0.003f, 1.0f, 1.0f, 1.0f);
+        drawText(vertices, "COST 20", -0.48f, 0.74f, 0.0028f, 1.0f, 0.9f, 0.3f);
 
         // Card 3: Defense (Cost 30)
         if (selectedPlayerType == 2) {
             addRectangle(vertices, -0.26f, 0.93f, -0.04f, 0.69f, 1.0f, 1.0f, 1.0f); // White selection border
         }
+        addRectangle(vertices, -0.25f, 0.92f, -0.05f, 0.70f, 0.15f, 0.15f, 0.18f); // Dark card base
         if (coins >= 30) {
-            addRectangle(vertices, -0.25f, 0.92f, -0.05f, 0.70f, 0.85f, 0.65f, 0.20f); // Gold card (unlocked)
+            addRectangle(vertices, -0.18f, 0.83f, -0.12f, 0.77f, 0.85f, 0.65f, 0.20f); // Gold preview icon
         } else {
-            addRectangle(vertices, -0.25f, 0.92f, -0.05f, 0.70f, 0.40f, 0.40f, 0.40f); // Grayscale (locked)
+            addRectangle(vertices, -0.18f, 0.83f, -0.12f, 0.77f, 0.40f, 0.40f, 0.40f); // Locked icon
         }
+        drawText(vertices, "DEFENSE", -0.24f, 0.90f, 0.003f, 1.0f, 1.0f, 1.0f);
+        drawText(vertices, "COST 30", -0.23f, 0.74f, 0.0028f, 1.0f, 0.9f, 0.3f);
 
         // Check lane hovering
         int hoveredLane = -1;
@@ -375,6 +430,11 @@ int main() {
                 } else if (selectedPlayerType == 2 && coins >= 30) {
                     defense_player* p = new defense_player();
                     p->setLane(hoveredLane);
+                    // Place Defense at clicked X position on the lane!
+                    float placeX = x;
+                    if (placeX < -0.75f) placeX = -0.75f;
+                    if (placeX > 0.70f) placeX = 0.70f;
+                    p->x = placeX;
                     players.push_back(p);
                     coins = coins - 30;
                 }

@@ -291,12 +291,13 @@ int main() {
     enemies.push_back(Enemy(2, HARD));
 
     int selectedPlayerType = 0;  // 0 = Melee (Key 1), 1 = Ranged (Key 2), 2 = Defense (Key 3)
-    int coins = 100;             // Starting coins
+    int coins = 30;              // Starting coins (30 per PDF Page 6)
     bool wasMouseDown = false;   // To detect a fresh mouse click
     bool selectedLanes[3] = {true, false, false}; // Active selected lanes (can toggle multiple)
     bool isPaused = false;
     bool wasEscDown = false;
     bool isGameOver = false;
+    int enemyAttackTimer = 0;
 
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
@@ -448,7 +449,8 @@ int main() {
                 enemies.push_back(Enemy(1, MEDIUM));
                 enemies.push_back(Enemy(2, HARD));
 
-                coins = 100;
+                coins = 30;
+                enemyAttackTimer = 0;
                 selectedPlayerType = 0;
                 selectedLanes[0] = true;
                 selectedLanes[1] = false;
@@ -741,10 +743,31 @@ int main() {
         }
 
         // Move and draw active enemies
+        enemyAttackTimer = enemyAttackTimer + 1;
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active == true) {
                 if (!isPaused && !isGameOver) {
-                    enemies[j].moveLeft();
+                    bool enemyBlocked = false;
+
+                    // Check if blocked by any player or defense blocker on the same lane
+                    for (size_t p = 0; p < players.size(); p++) {
+                        if (players[p]->lane == enemies[j].lane) {
+                            float dist = enemies[j].x - players[p]->x;
+                            if (dist >= 0.0f && dist <= 0.09f) {
+                                enemyBlocked = true;
+                                // Enemy attacks player / defense blocker every ~50 frames
+                                if (enemyAttackTimer % 50 == 0) {
+                                    players[p]->takeDamage(enemies[j].damage);
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    // Only advance forward if not currently blocked by a player
+                    if (enemyBlocked == false) {
+                        enemies[j].moveLeft();
+                    }
                 }
 
                 // Draw enemy (color becomes deeper red as health drops)

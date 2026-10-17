@@ -389,7 +389,7 @@ int main() {
 
         // Plaintext yellow coins display
         std::string coinStr = "COINS: " + std::to_string(coins);
-        drawText(vertices, coinStr, 0.40f, 0.86f, 0.0035f, 1.0f, 0.9f, 0.1f);
+        drawText(vertices, coinStr, 0.36f, 0.85f, 0.0035f, 1.0f, 0.9f, 0.1f);
 
         // Check lane hovering
         int hoveredLane = -1;
@@ -628,7 +628,7 @@ int main() {
 
             // Health bar above player
             float px = players[i]->x;
-            float barY = drawY + 0.085f;
+            float barY = drawY + 0.080f;
             addRectangle(vertices, px - 0.04f, barY + 0.006f, px + 0.04f, barY - 0.006f, 0.35f, 0.1f, 0.1f);
             float hpRatio = (float)players[i]->health / (float)players[i]->maxHealth;
             if (hpRatio < 0.0f) hpRatio = 0.0f;

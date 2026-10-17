@@ -4,8 +4,6 @@ class Enemy {
     float posHorizontal;
     float width;
     float height;
-    Enemy(int laneNumber){
-        lane = laneNumber;
-    };
-    void draw(){};
+    Enemy(int laneNumber);
+    void draw();
 };

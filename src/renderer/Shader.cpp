@@ -2,7 +2,7 @@
 #include <iostream>
 #include <glm/gtc/type_ptr.hpp>
 
-GLuint compileShader(GLenum type, const char* src) {
+static GLuint compileShader(GLenum type, const char* src) {
     GLuint shader = glCreateShader(type);
     glShaderSource(shader, 1, &src, nullptr);
     glCompileShader(shader);

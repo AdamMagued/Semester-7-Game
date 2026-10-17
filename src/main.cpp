@@ -3,6 +3,8 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
+#define STB_IMAGE_IMPLEMENTATION
+#include "../assets/textures/stb_Image.h"
 #include "game/entities/players/melee/melee_player.h"
 #include "game/entities/players/defense/defense_player.h"
 #include "game/entities/players/ranged/ranged_player.h"
@@ -47,6 +49,22 @@ void main() {
 }
 )";
 
+const char* playerVertexShaderSrc = R"(
+#version 330 core
+layout (location = 0) in vec2 aPos;
+layout (location = 1) in vec2 aUV;
+out vec2 uv;
+void main() { gl_Position = vec4(aPos, 0.0, 1.0); uv = aUV; }
+)";
+
+const char* playerFragmentShaderSrc = R"(
+#version 330 core
+in vec2 uv;
+out vec4 FragColor;
+uniform sampler2D playerImage;
+void main() { FragColor = texture(playerImage, uv); }
+)";
+
 GLuint compileShader(GLenum type, const char* src) {
     GLuint shader = glCreateShader(type);
     glShaderSource(shader, 1, &src, nullptr);
@@ -60,6 +78,27 @@ GLuint compileShader(GLenum type, const char* src) {
         std::cerr << "Shader compile error:\n" << log << "\n";
     }
     return shader;
+}
+
+GLuint loadTexture(const char* path) {
+    int width, height, channels;
+    unsigned char* image = stbi_load(path, &width, &height, &channels, 4);
+    if (!image) {
+        std::cerr << "Couldn't load " << path << ": " << stbi_failure_reason() << '\n';
+        return 0;
+    }
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, image);
+    stbi_image_free(image);
+    return texture;
 }
 
 int main() {
@@ -112,6 +151,46 @@ int main() {
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
+    GLuint playerVS = compileShader(GL_VERTEX_SHADER, playerVertexShaderSrc);
+    GLuint playerFS = compileShader(GL_FRAGMENT_SHADER, playerFragmentShaderSrc);
+    GLuint playerProgram = glCreateProgram();
+    glAttachShader(playerProgram, playerVS);
+    glAttachShader(playerProgram, playerFS);
+    glLinkProgram(playerProgram);
+    glDeleteShader(playerVS);
+    glDeleteShader(playerFS);
+
+    int imageWidth, imageHeight, imageChannels;
+    stbi_set_flip_vertically_on_load(true);
+    unsigned char* image = stbi_load("assets/textures/characters/player.png",
+                                     &imageWidth, &imageHeight, &imageChannels, 4);
+    GLuint playerTexture = 0;
+    if (image) {
+        glGenTextures(1, &playerTexture);
+        glBindTexture(GL_TEXTURE_2D, playerTexture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imageWidth, imageHeight, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, image);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        stbi_image_free(image);
+    } else {
+        std::cerr << "Couldn't load player.png: " << stbi_failure_reason() << '\n';
+    }
+
+    const char* backgroundFiles[] = {
+        "assets/textures/environment/parallax_forest_pack/layers/parallax-forest-back-trees.png",
+        "assets/textures/environment/parallax_forest_pack/layers/parallax-forest-lights.png",
+        "assets/textures/environment/parallax_forest_pack/layers/parallax-forest-middle-trees.png",
+        "assets/textures/environment/parallax_forest_pack/layers/parallax-forest-front-trees.png"
+    };
+    GLuint backgroundTextures[4];
+    for (int i = 0; i < 4; ++i)
+        backgroundTextures[i] = loadTexture(backgroundFiles[i]);
+
     // --- Playfield rectangles ---
     std::vector<float> vertices;
     addRectangle(vertices, -0.82f,  0.62f, 0.98f,  0.20f, 0.2f, 0.6f, 0.2f);
@@ -150,6 +229,18 @@ int main() {
     glEnableVertexAttribArray(1);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    GLuint playerVAO, playerVBO;
+    glGenVertexArrays(1, &playerVAO);
+    glGenBuffers(1, &playerVBO);
+    glBindVertexArray(playerVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
+    glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
     glBindVertexArray(0);
 
     const size_t boardSize = vertices.size();
@@ -209,10 +300,6 @@ int main() {
             player1.move();
             player1.updateJump(); // Handle jump countdown (Dino game style)
 
-            float drawY = player1.y + player1.yOffset;
-            addRectangle(vertices, player1.x - 0.04f, drawY + 0.06f,
-                                   player1.x + 0.04f, drawY - 0.06f,
-                                   0.9f, 0.2f, 0.2f); // Red player box
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -221,9 +308,43 @@ int main() {
         glClearColor(0.15f, 0.35f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        const float backgroundQuad[] = {
+            -1,1,0,1,  1,1,1,1,  1,-1,1,0,
+            -1,1,0,1,  1,-1,1,0,  -1,-1,0,0
+        };
+        glUseProgram(playerProgram);
+        glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindVertexArray(playerVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(backgroundQuad), backgroundQuad);
+        for (GLuint backgroundTexture : backgroundTextures) {
+            if (!backgroundTexture) continue;
+            glBindTexture(GL_TEXTURE_2D, backgroundTexture);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
+
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size() / 6));
+
+        if (isSpawned && playerTexture) {
+            const float left = player1.x - 0.04f, right = player1.x + 0.04f;
+            const float top = player1.y + player1.yOffset + 0.06f;
+            const float bottom = player1.y + player1.yOffset - 0.06f;
+            const float quad[] = {
+                left,top,0,1, right,top,0.25f,1, right,bottom,0.25f,0,
+                left,top,0,1, right,bottom,0.25f,0, left,bottom,0,0
+            };
+            glUseProgram(playerProgram);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, playerTexture);
+            glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
+            glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
+            glBindVertexArray(playerVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -232,6 +353,11 @@ int main() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
+    glDeleteProgram(playerProgram);
+    if (playerTexture) glDeleteTextures(1, &playerTexture);
+    glDeleteTextures(4, backgroundTextures);
+    glDeleteVertexArrays(1, &playerVAO);
+    glDeleteBuffers(1, &playerVBO);
 
     glfwTerminate();
     return 0;

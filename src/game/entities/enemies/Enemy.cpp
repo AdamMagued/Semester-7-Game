@@ -1,5 +1,4 @@
 #include "Enemy.h"
-#include "src/core/Constants.h"
 
 Enemy::Enemy(int laneNumber){
     posHorizontal = 16;
@@ -8,6 +7,4 @@ Enemy::Enemy(int laneNumber){
     height = 1.2;
 };
 
-void Enemy::draw(){
-    float laneYcenter = topOfPlayfield + (lane*laneHeight) - (laneHeight/2);
-};
+void Enemy::draw(){};

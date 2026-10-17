@@ -31,6 +31,14 @@ struct Projectile {
     bool active;
 };
 
+struct Collectible {
+    float x;
+    float y;
+    int lane;
+    int value;
+    bool active;
+};
+
 // Dead-simple 3x5 pixel font for plaintext rendering
 static const char* getGlyph(char c) {
     switch (c) {
@@ -274,6 +282,7 @@ int main() {
     // Player, Projectiles, Enemies, Lane Selection, and UI Card setup
     std::vector<playerClass*> players;
     std::vector<Projectile> projectiles;
+    std::vector<Collectible> collectibles;
     std::vector<Enemy> enemies;
     enemies.push_back(Enemy(0, EASY));
     enemies.push_back(Enemy(1, MEDIUM));
@@ -372,6 +381,10 @@ int main() {
             drawText(vertices, "COST 30", -0.20f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
         }
         drawText(vertices, "DEFENSE", -0.20f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
+
+        // Plaintext yellow coins display
+        std::string coinStr = "COINS: " + std::to_string(coins);
+        drawText(vertices, coinStr, 0.40f, 0.86f, 0.0035f, 1.0f, 0.9f, 0.1f);
 
         // Check lane hovering
         int hoveredLane = -1;
@@ -498,6 +511,13 @@ int main() {
 
                                 if (enemies[j].health <= 0) {
                                     enemies[j].active = false;
+                                    Collectible c;
+                                    c.x = enemies[j].x;
+                                    c.y = enemies[j].y;
+                                    c.lane = enemies[j].lane;
+                                    c.value = 10;
+                                    c.active = true;
+                                    collectibles.push_back(c);
                                 }
                             }
                             // Visual fist punch towards enemy
@@ -605,6 +625,13 @@ int main() {
                             enemies[j].health = enemies[j].health - 1;
                             if (enemies[j].health <= 0) {
                                 enemies[j].active = false;
+                                Collectible c;
+                                c.x = enemies[j].x;
+                                c.y = enemies[j].y;
+                                c.lane = enemies[j].lane;
+                                c.value = 10;
+                                c.active = true;
+                                collectibles.push_back(c);
                             }
                             break;
                         }
@@ -617,6 +644,30 @@ int main() {
                     addRectangle(vertices, projectiles[i].x - 0.02f, projectiles[i].y + 0.015f,
                                            projectiles[i].x + 0.02f, projectiles[i].y - 0.015f,
                                            1.0f, 0.85f, 0.1f); // Yellow projectile bullet
+                }
+            }
+        }
+
+        // Draw and pick up dropped collectibles
+        for (size_t i = 0; i < collectibles.size(); i++) {
+            if (collectibles[i].active == true) {
+                // Check if any moving player walks over the dropped coin
+                for (size_t p = 0; p < players.size(); p++) {
+                    if (players[p]->lane == collectibles[i].lane) {
+                        float dist = std::abs(players[p]->x - collectibles[i].x);
+                        if (dist < 0.06f) {
+                            coins = coins + collectibles[i].value;
+                            collectibles[i].active = false;
+                            break;
+                        }
+                    }
+                }
+
+                // Simple yellow square for dropped coin
+                if (collectibles[i].active == true) {
+                    addRectangle(vertices, collectibles[i].x - 0.02f, collectibles[i].y + 0.02f,
+                                           collectibles[i].x + 0.02f, collectibles[i].y - 0.02f,
+                                           1.0f, 0.85f, 0.1f);
                 }
             }
         }

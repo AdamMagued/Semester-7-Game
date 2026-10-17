@@ -567,10 +567,21 @@ int main() {
 
         // Move and draw each spawned player
         for (size_t i = 0; i < players.size(); i++) {
-            bool inMeleeCombat = false;
+            bool isPlayerBlocked = false;
 
             // Update player combat and movement if not paused or game over
             if (!isPaused && !isGameOver) {
+                // Check if any active enemy on the same lane blocks forward movement
+                for (size_t j = 0; j < enemies.size(); j++) {
+                    if (enemies[j].active && enemies[j].lane == players[i]->lane) {
+                        float dist = enemies[j].x - players[i]->x;
+                        if (dist >= 0.0f && dist <= 0.11f) {
+                            isPlayerBlocked = true;
+                            break;
+                        }
+                    }
+                }
+
                 // Check melee attack collision with enemies
                 if (players[i]->playerType == playerClass::MELEE) {
                     melee_player* mp = static_cast<melee_player*>(players[i]);
@@ -581,8 +592,7 @@ int main() {
                     for (size_t j = 0; j < enemies.size(); j++) {
                         if (enemies[j].active && enemies[j].lane == mp->lane) {
                             float dist = enemies[j].x - mp->x;
-                            if (dist > 0.0f && dist < 0.12f) {
-                                inMeleeCombat = true; // Enemy in melee combat range!
+                            if (dist > 0.0f && dist <= 0.11f) {
                                 if (mp->attackCooldown <= 0) {
                                     mp->doAttack(); // Trigger strategy attack (punched)
                                     enemies[j].health = enemies[j].health - mp->damage;
@@ -610,8 +620,8 @@ int main() {
                     }
                 }
 
-                // Only advance forward if not currently in melee combat
-                if (inMeleeCombat == false) {
+                // Only advance forward if not currently blocked by an enemy
+                if (isPlayerBlocked == false) {
                     players[i]->move();
                 }
                 players[i]->updateJump();

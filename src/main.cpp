@@ -6,6 +6,7 @@
 #include "game/entities/players/melee/melee_player.h"
 #include "game/entities/players/defense/defense_player.h"
 #include "game/entities/players/ranged/ranged_player.h"
+#include "game/entities/enemies/Enemy.h"
 
 void addRectangle(std::vector<float>& vertices, float left, float top,
                   float right, float bottom, float red, float green, float blue) {
@@ -55,7 +56,7 @@ void main() {
 }
 )";
 
-GLuint compileShader(GLenum type, const char* src) {
+static GLuint compileShader(GLenum type, const char* src) {
     GLuint shader = glCreateShader(type);
     glShaderSource(shader, 1, &src, nullptr);
     glCompileShader(shader);
@@ -133,9 +134,14 @@ int main() {
     addRectangle(vertices, -0.86f,  0.43f, -0.82f,  0.33f, 0.65f, 0.85f, 1.0f);  // right window
     addRectangle(vertices, -0.90f, -0.82f, -0.85f, -0.53f, 0.08f, 0.20f, 0.48f); // doorway
 
-    // Player, Projectiles, Lane Selection, and UI Card setup
+    // Player, Projectiles, Enemies, Lane Selection, and UI Card setup
     std::vector<playerClass*> players;
     std::vector<Projectile> projectiles;
+    std::vector<Enemy> enemies;
+    enemies.push_back(Enemy(0, EASY));
+    enemies.push_back(Enemy(1, MEDIUM));
+    enemies.push_back(Enemy(2, HARD));
+
     int selectedPlayerType = 0;  // 0 = Melee (Key 1), 1 = Ranged (Key 2), 2 = Defense (Key 3)
     int coins = 100;             // Starting coins
     bool wasMouseDown = false;   // To detect a fresh mouse click
@@ -301,7 +307,44 @@ int main() {
 
         // Move and draw each spawned player
         for (size_t i = 0; i < players.size(); i++) {
-            players[i]->move();
+            bool inMeleeCombat = false;
+
+            // Check melee attack collision with enemies
+            if (players[i]->playerType == playerClass::MELEE) {
+                melee_player* mp = static_cast<melee_player*>(players[i]);
+                if (mp->attackCooldown > 0) {
+                    mp->attackCooldown = mp->attackCooldown - 1;
+                }
+
+                for (size_t j = 0; j < enemies.size(); j++) {
+                    if (enemies[j].active && enemies[j].lane == mp->lane) {
+                        float dist = enemies[j].x - mp->x;
+                        if (dist > 0.0f && dist < 0.12f) {
+                            inMeleeCombat = true; // Enemy in melee combat range!
+                            if (mp->attackCooldown <= 0) {
+                                mp->doAttack(); // Trigger strategy attack (punched)
+                                enemies[j].health = enemies[j].health - mp->damage;
+                                mp->attackCooldown = 50; // Punch cooldown (~0.8s)
+
+                                if (enemies[j].health <= 0) {
+                                    enemies[j].active = false;
+                                }
+                            }
+                            // Visual fist punch towards enemy
+                            float punchY = mp->y + mp->yOffset;
+                            addRectangle(vertices, mp->x + 0.04f, punchY + 0.02f,
+                                                   mp->x + 0.09f, punchY - 0.02f,
+                                                   1.0f, 0.4f, 0.4f);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Only advance forward if not currently in melee combat
+            if (inMeleeCombat == false) {
+                players[i]->move();
+            }
             players[i]->updateJump();
 
             float drawY = players[i]->y + players[i]->yOffset;
@@ -339,13 +382,45 @@ int main() {
             if (projectiles[i].active == true) {
                 projectiles[i].x = projectiles[i].x + projectiles[i].speed;
 
+                // Check collision with enemies
+                for (size_t j = 0; j < enemies.size(); j++) {
+                    if (enemies[j].active && enemies[j].lane == projectiles[i].lane) {
+                        float dist = std::abs(projectiles[i].x - enemies[j].x);
+                        if (dist < 0.05f) {
+                            projectiles[i].active = false;
+                            enemies[j].health = enemies[j].health - 1;
+                            if (enemies[j].health <= 0) {
+                                enemies[j].active = false;
+                            }
+                            break;
+                        }
+                    }
+                }
+
                 if (projectiles[i].x > 0.95f) {
                     projectiles[i].active = false;
-                } else {
+                } else if (projectiles[i].active == true) {
                     addRectangle(vertices, projectiles[i].x - 0.02f, projectiles[i].y + 0.015f,
                                            projectiles[i].x + 0.02f, projectiles[i].y - 0.015f,
                                            1.0f, 0.85f, 0.1f); // Yellow projectile bullet
                 }
+            }
+        }
+
+        // Move and draw active enemies
+        for (size_t j = 0; j < enemies.size(); j++) {
+            if (enemies[j].active == true) {
+                enemies[j].moveLeft();
+
+                // Draw enemy (color becomes deeper red as health drops)
+                float healthRatio = (float)enemies[j].health / 5.0f;
+                float er = 0.55f + (1.0f - healthRatio) * 0.40f;
+                float eg = 0.15f * healthRatio;
+                float eb = 0.55f * healthRatio;
+
+                addRectangle(vertices, enemies[j].x - 0.04f, enemies[j].y + 0.06f,
+                                       enemies[j].x + 0.04f, enemies[j].y - 0.06f,
+                                       er, eg, eb);
             }
         }
 

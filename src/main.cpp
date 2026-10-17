@@ -73,6 +73,12 @@ static const char* getGlyph(char c) {
         case 'U': return "#.#" "#.#" "#.#" "#.#" "###";
         case 'V': return "#.#" "#.#" "#.#" "#.#" ".#.";
         case 'W': return "#.#" "#.#" "#.#" "###" "#.#";
+        case 'X': return "#.#" "#.#" ".#." "#.#" "#.#";
+        case 'Y': return "#.#" "#.#" ".#." ".#." ".#.";
+        case '=': return "..." "###" "..." "###" "...";
+        case '*': return ".#." "###" ".#." "..." "...";
+        case '^': return ".#." "#.#" "..." "..." "...";
+        case '.': return "..." "..." "..." "..." ".#.";
         default:  return "..." "..." "..." "..." "...";
     }
 }
@@ -268,6 +274,14 @@ int main() {
     for (int i = 0; i < 4; ++i)
         backgroundTextures[i] = loadTexture(backgroundFiles[i]);
 
+    GLuint enemyRangedTextures[7] = {0};
+    for (int i = 0; i < 7; ++i) {
+        char texPath[128];
+        snprintf(texPath, sizeof(texPath), "assets/textures/characters/enemy_ranged_%d.png", i + 1);
+        enemyRangedTextures[i] = loadTexture(texPath);
+    }
+    GLuint spearTexture = loadTexture("assets/textures/characters/enemy_spear.png");
+
     // --- Playfield rectangles ---
     std::vector<float> vertices;
     addRectangle(vertices, -0.82f,  0.62f, 0.98f,  0.20f, 0.2f, 0.6f, 0.2f);
@@ -284,6 +298,7 @@ int main() {
     // Player, Projectiles, Enemies, Lane Selection, and UI Card setup
     std::vector<playerClass*> players;
     std::vector<Projectile> projectiles;
+    std::vector<Projectile> enemyProjectiles;
     std::vector<Collectible> collectibles;
     std::vector<Enemy> enemies;
     enemies.push_back(Enemy(0, EASY));
@@ -442,6 +457,7 @@ int main() {
                 }
                 players.clear();
                 projectiles.clear();
+                enemyProjectiles.clear();
                 collectibles.clear();
 
                 enemies.clear();
@@ -764,21 +780,80 @@ int main() {
                         }
                     }
 
-                    // Only advance forward if not currently blocked by a player
-                    if (enemyBlocked == false) {
-                        enemies[j].moveLeft();
+                    int animCycle = enemyAttackTimer % 300;
+
+                    // If in throwing phase (animCycle >= 150), PAUSE movement to aim and throw!
+                    if (animCycle < 150) {
+                        // Only advance forward during walk phase if not blocked by player
+                        if (enemyBlocked == false) {
+                            enemies[j].moveLeft();
+                        }
+                    } else if (animCycle == 240) {
+                        // Frame 5 release: throw spear straight horizontally down the lane!
+                        Projectile spear;
+                        spear.x = enemies[j].x - 0.05f;
+                        spear.y = enemies[j].y;
+                        spear.lane = enemies[j].lane;
+                        spear.speed = 0.0075f;
+                        spear.active = true;
+                        enemyProjectiles.push_back(spear);
                     }
                 }
 
-                // Draw enemy (color becomes deeper red as health drops)
-                float healthRatio = (float)enemies[j].health / 5.0f;
-                float er = 0.55f + (1.0f - healthRatio) * 0.40f;
-                float eg = 0.15f * healthRatio;
-                float eb = 0.55f * healthRatio;
+                // If in aim/wind-up phase (Frame 4, ticks 190 to 240), draw D=U*T equation & horizontal aim line!
+                int animCycle = enemyAttackTimer % 300;
+                if (animCycle >= 190 && animCycle < 240) {
+                    // Equation from Frame 4
+                    drawText(vertices, "D=U*T", enemies[j].x - 0.10f, enemies[j].y + 0.13f, 0.003f, 1.0f, 1.0f, 0.2f);
 
-                addRectangle(vertices, enemies[j].x - 0.04f, enemies[j].y + 0.06f,
-                                       enemies[j].x + 0.04f, enemies[j].y - 0.06f,
-                                       er, eg, eb);
+                    // Straight horizontal aiming line dots extending forward from spear
+                    for (float t = 0.0f; t <= 1.0f; t += 0.10f) {
+                        float aimX = enemies[j].x - 0.05f - t * 0.25f;
+                        float aimY = enemies[j].y;
+                        addRectangle(vertices, aimX - 0.002f, aimY + 0.002f, aimX + 0.002f, aimY - 0.002f,
+                                               1.0f, 0.9f, 0.3f);
+                    }
+                }
+
+                // Enemy Health bar above head (red background, green remaining)
+                float healthRatio = (float)enemies[j].health / 5.0f;
+                if (healthRatio < 0.0f) healthRatio = 0.0f;
+                addRectangle(vertices, enemies[j].x - 0.04f, enemies[j].y + 0.09f,
+                                       enemies[j].x + 0.04f, enemies[j].y + 0.08f,
+                                       0.6f, 0.1f, 0.1f);
+                addRectangle(vertices, enemies[j].x - 0.04f, enemies[j].y + 0.09f,
+                                       enemies[j].x - 0.04f + 0.08f * healthRatio, enemies[j].y + 0.08f,
+                                       0.1f, 0.85f, 0.2f);
+            }
+        }
+
+        // Move and update enemy spears thrown horizontally at players
+        for (size_t k = 0; k < enemyProjectiles.size(); k++) {
+            if (enemyProjectiles[k].active == true) {
+                if (!isPaused && !isGameOver) {
+                    enemyProjectiles[k].x = enemyProjectiles[k].x - enemyProjectiles[k].speed;
+
+                    // Check collision with players on this lane
+                    for (size_t p = 0; p < players.size(); p++) {
+                        if (players[p]->lane == enemyProjectiles[k].lane) {
+                            float dist = std::abs(enemyProjectiles[k].x - players[p]->x);
+                            if (dist < 0.05f) {
+                                // Ducking avoids horizontal spear (spear flies right over ducked player!)
+                                if (players[p]->yOffset < -0.02f) {
+                                    continue;
+                                }
+                                enemyProjectiles[k].active = false;
+                                players[p]->takeDamage(1);
+                                break;
+                            }
+                        }
+                    }
+
+                    // Remove if left screen
+                    if (enemyProjectiles[k].x < -0.90f) {
+                        enemyProjectiles[k].active = false;
+                    }
+                }
             }
         }
 
@@ -847,6 +922,89 @@ int main() {
             }
         }
 
+        // Draw animated enemy textured quads
+        for (size_t j = 0; j < enemies.size(); j++) {
+            if (enemies[j].active) {
+                int animCycle = enemyAttackTimer % 300;
+                int frameIdx = 0;
+                if (animCycle < 150) {
+                    // Walk loop with spear at hip: Frames 1, 2, 7 (indices 0, 1, 6)
+                    // Slowed way down: 50 ticks per step!
+                    int walkFrames[] = {0, 1, 6};
+                    frameIdx = walkFrames[(animCycle / 50) % 3];
+                } else if (animCycle < 190) {
+                    // Frame 3: Lift spear up over shoulder! (index 2, lasts 40 ticks)
+                    frameIdx = 2;
+                } else if (animCycle < 240) {
+                    // Frame 4: Pull spear back horizontally & aim arm forward! (index 3, lasts 50 ticks)
+                    frameIdx = 3;
+                } else if (animCycle < 270) {
+                    // Frame 5: Thrust arm forward, spear released! (index 4, lasts 30 ticks)
+                    frameIdx = 4;
+                } else {
+                    // Frame 6: Follow-through arm outstretched! (index 5, lasts 30 ticks)
+                    frameIdx = 5;
+                }
+
+                if (enemyRangedTextures[frameIdx]) {
+                    const float left = enemies[j].x - 0.05f;
+                    const float right = enemies[j].x + 0.05f;
+                    const float top = enemies[j].y + 0.075f;
+                    const float bottom = enemies[j].y - 0.075f;
+
+                    // Flipped horizontally so robot faces left towards home base
+                    const float quad[] = {
+                        left, top, 1.0f, 1.0f,
+                        right, top, 0.0f, 1.0f,
+                        right, bottom, 0.0f, 0.0f,
+
+                        left, top, 1.0f, 1.0f,
+                        right, bottom, 0.0f, 0.0f,
+                        left, bottom, 1.0f, 0.0f
+                    };
+                    glUseProgram(playerProgram);
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, enemyRangedTextures[frameIdx]);
+                    glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
+                    glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
+                    glBindVertexArray(playerVAO);
+                    glDrawArrays(GL_TRIANGLES, 0, 6);
+                }
+            }
+        }
+
+        // Draw flying spears thrown by enemies
+        if (spearTexture) {
+            for (size_t k = 0; k < enemyProjectiles.size(); k++) {
+                if (enemyProjectiles[k].active) {
+                    const float left = enemyProjectiles[k].x - 0.045f;
+                    const float right = enemyProjectiles[k].x + 0.045f;
+                    const float top = enemyProjectiles[k].y + 0.008f;
+                    const float bottom = enemyProjectiles[k].y - 0.008f;
+
+                    // Flipped horizontally so spear tip flies left
+                    const float quad[] = {
+                        left, top, 1.0f, 1.0f,
+                        right, top, 0.0f, 1.0f,
+                        right, bottom, 0.0f, 0.0f,
+
+                        left, top, 1.0f, 1.0f,
+                        right, bottom, 0.0f, 0.0f,
+                        left, bottom, 1.0f, 0.0f
+                    };
+                    glUseProgram(playerProgram);
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, spearTexture);
+                    glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
+                    glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
+                    glBindVertexArray(playerVAO);
+                    glDrawArrays(GL_TRIANGLES, 0, 6);
+                }
+            }
+        }
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -861,6 +1019,8 @@ int main() {
     glDeleteProgram(playerProgram);
     if (playerTexture) glDeleteTextures(1, &playerTexture);
     glDeleteTextures(4, backgroundTextures);
+    glDeleteTextures(7, enemyRangedTextures);
+    if (spearTexture) glDeleteTextures(1, &spearTexture);
     glDeleteVertexArrays(1, &playerVAO);
     glDeleteBuffers(1, &playerVBO);
 

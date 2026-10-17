@@ -38,19 +38,31 @@ static const char* getGlyph(char c) {
         case '1': return ".#." "##." ".#." ".#." "###";
         case '2': return "###" "..#" "###" "#.." "###";
         case '3': return "###" "..#" "###" "..#" "###";
+        case '4': return "#.#" "#.#" "###" "..#" "..#";
+        case '5': return "###" "#.." "###" "..#" "###";
+        case '6': return "###" "#.." "###" "#.#" "###";
+        case '7': return "###" "..#" "..#" "..#" "..#";
+        case '8': return "###" "#.#" "###" "#.#" "###";
+        case '9': return "###" "#.#" "###" "..#" "###";
+        case ':': return "..." ".#." "..." ".#." "...";
         case 'A': return "###" "#.#" "###" "#.#" "#.#";
+        case 'B': return "##." "#.#" "##." "#.#" "##.";
         case 'C': return "###" "#.." "#.." "#.." "###";
         case 'D': return "##." "#.#" "#.#" "#.#" "##.";
         case 'E': return "###" "#.." "###" "#.." "###";
         case 'F': return "###" "#.." "###" "#.." "#..";
         case 'G': return "###" "#.." "#.#" "#.#" "###";
+        case 'H': return "#.#" "#.#" "###" "#.#" "#.#";
+        case 'I': return "###" ".#." ".#." ".#." "###";
         case 'L': return "#.." "#.." "#.." "#.." "###";
         case 'M': return "#.#" "###" "#.#" "#.#" "#.#";
         case 'N': return "#.#" "###" "###" "#.#" "#.#";
         case 'O': return "###" "#.#" "#.#" "#.#" "###";
+        case 'P': return "###" "#.#" "###" "#.." "#..";
         case 'R': return "###" "#.#" "###" "#.#" "#.#";
         case 'S': return "###" "#.." "###" "..#" "###";
         case 'T': return "###" ".#." ".#." ".#." ".#.";
+        case 'U': return "#.#" "#.#" "#.#" "#.#" "###";
         default:  return "..." "..." "..." "..." "...";
     }
 }
@@ -322,44 +334,44 @@ int main() {
         float y = 1.0f - 2.0f * static_cast<float>(mouseY) / windowHeight;
 
         // --- Draw UI Cards in top-left ---
-        // Card 1: Melee (Cost 10)
+        // Card 1: Melee (Cost 10) - Red Box
         if (selectedPlayerType == 0) {
-            addRectangle(vertices, -0.76f, 0.93f, -0.54f, 0.69f, 1.0f, 1.0f, 1.0f); // White selection border
+            addRectangle(vertices, -0.76f, 0.93f, -0.54f, 0.72f, 1.0f, 1.0f, 1.0f); // White selection border
         }
-        addRectangle(vertices, -0.75f, 0.92f, -0.55f, 0.70f, 0.15f, 0.15f, 0.18f); // Dark card base
         if (coins >= 10) {
-            addRectangle(vertices, -0.68f, 0.83f, -0.62f, 0.77f, 0.85f, 0.25f, 0.25f); // Red preview icon
+            addRectangle(vertices, -0.75f, 0.92f, -0.55f, 0.73f, 0.85f, 0.25f, 0.25f); // Red card
+            drawText(vertices, "COST 10", -0.70f, 0.835f, 0.0035f, 1.0f, 1.0f, 1.0f);
         } else {
-            addRectangle(vertices, -0.68f, 0.83f, -0.62f, 0.77f, 0.40f, 0.40f, 0.40f); // Locked icon
+            addRectangle(vertices, -0.75f, 0.92f, -0.55f, 0.73f, 0.40f, 0.40f, 0.40f); // Locked card
+            drawText(vertices, "COST 10", -0.70f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
         }
-        drawText(vertices, "MELEE", -0.72f, 0.90f, 0.003f, 1.0f, 1.0f, 1.0f);
-        drawText(vertices, "COST 10", -0.73f, 0.74f, 0.0028f, 1.0f, 0.9f, 0.3f);
+        drawText(vertices, "MELEE", -0.68f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
 
-        // Card 2: Ranged (Cost 20)
+        // Card 2: Ranged (Cost 20) - Blue Box
         if (selectedPlayerType == 1) {
-            addRectangle(vertices, -0.51f, 0.93f, -0.29f, 0.69f, 1.0f, 1.0f, 1.0f); // White selection border
+            addRectangle(vertices, -0.51f, 0.93f, -0.29f, 0.72f, 1.0f, 1.0f, 1.0f); // White selection border
         }
-        addRectangle(vertices, -0.50f, 0.92f, -0.30f, 0.70f, 0.15f, 0.15f, 0.18f); // Dark card base
         if (coins >= 20) {
-            addRectangle(vertices, -0.43f, 0.83f, -0.37f, 0.77f, 0.25f, 0.45f, 0.85f); // Blue preview icon
+            addRectangle(vertices, -0.50f, 0.92f, -0.30f, 0.73f, 0.25f, 0.45f, 0.85f); // Blue card
+            drawText(vertices, "COST 20", -0.45f, 0.835f, 0.0035f, 1.0f, 1.0f, 1.0f);
         } else {
-            addRectangle(vertices, -0.43f, 0.83f, -0.37f, 0.77f, 0.40f, 0.40f, 0.40f); // Locked icon
+            addRectangle(vertices, -0.50f, 0.92f, -0.30f, 0.73f, 0.40f, 0.40f, 0.40f); // Locked card
+            drawText(vertices, "COST 20", -0.45f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
         }
-        drawText(vertices, "RANGED", -0.48f, 0.90f, 0.003f, 1.0f, 1.0f, 1.0f);
-        drawText(vertices, "COST 20", -0.48f, 0.74f, 0.0028f, 1.0f, 0.9f, 0.3f);
+        drawText(vertices, "RANGED", -0.44f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
 
-        // Card 3: Defense (Cost 30)
+        // Card 3: Defense (Cost 30) - Gold Box
         if (selectedPlayerType == 2) {
-            addRectangle(vertices, -0.26f, 0.93f, -0.04f, 0.69f, 1.0f, 1.0f, 1.0f); // White selection border
+            addRectangle(vertices, -0.26f, 0.93f, -0.04f, 0.72f, 1.0f, 1.0f, 1.0f); // White selection border
         }
-        addRectangle(vertices, -0.25f, 0.92f, -0.05f, 0.70f, 0.15f, 0.15f, 0.18f); // Dark card base
         if (coins >= 30) {
-            addRectangle(vertices, -0.18f, 0.83f, -0.12f, 0.77f, 0.85f, 0.65f, 0.20f); // Gold preview icon
+            addRectangle(vertices, -0.25f, 0.92f, -0.05f, 0.73f, 0.85f, 0.65f, 0.20f); // Gold card
+            drawText(vertices, "COST 30", -0.20f, 0.835f, 0.0035f, 1.0f, 1.0f, 1.0f);
         } else {
-            addRectangle(vertices, -0.18f, 0.83f, -0.12f, 0.77f, 0.40f, 0.40f, 0.40f); // Locked icon
+            addRectangle(vertices, -0.25f, 0.92f, -0.05f, 0.73f, 0.40f, 0.40f, 0.40f); // Locked card
+            drawText(vertices, "COST 30", -0.20f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
         }
-        drawText(vertices, "DEFENSE", -0.24f, 0.90f, 0.003f, 1.0f, 1.0f, 1.0f);
-        drawText(vertices, "COST 30", -0.23f, 0.74f, 0.0028f, 1.0f, 0.9f, 0.3f);
+        drawText(vertices, "DEFENSE", -0.20f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
 
         // Check lane hovering
         int hoveredLane = -1;
@@ -404,7 +416,7 @@ int main() {
             wasMouseDown = true; // Registered click
 
             // Click on top-left UI cards to select
-            if (y >= 0.70f && y <= 0.92f) {
+            if (y >= 0.66f && y <= 0.93f) {
                 if (x >= -0.75f && x <= -0.55f && coins >= 10) {
                     selectedPlayerType = 0;
                 } else if (x >= -0.50f && x <= -0.30f && coins >= 20) {

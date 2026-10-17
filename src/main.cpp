@@ -20,6 +20,14 @@ void addRectangle(std::vector<float>& vertices, float left, float top,
     vertices.insert(vertices.end(), rectangle, rectangle + 36);
 }
 
+struct Projectile {
+    float x;
+    float y;
+    int lane;
+    float speed;
+    bool active;
+};
+
 void framebufferSizeCallback(GLFWwindow*, int width, int height) {
     glViewport(0, 0, width, height);
 }
@@ -125,8 +133,9 @@ int main() {
     addRectangle(vertices, -0.86f,  0.43f, -0.82f,  0.33f, 0.65f, 0.85f, 1.0f);  // right window
     addRectangle(vertices, -0.90f, -0.82f, -0.85f, -0.53f, 0.08f, 0.20f, 0.48f); // doorway
 
-    // Player, Lane Selection, and UI Card setup
+    // Player, Projectiles, Lane Selection, and UI Card setup
     std::vector<playerClass*> players;
+    std::vector<Projectile> projectiles;
     int selectedPlayerType = 0;  // 0 = Melee (Key 1), 1 = Ranged (Key 2), 2 = Defense (Key 3)
     int coins = 100;             // Starting coins
     bool wasMouseDown = false;   // To detect a fresh mouse click
@@ -309,6 +318,35 @@ int main() {
             addRectangle(vertices, players[i]->x - 0.04f, drawY + 0.06f,
                                    players[i]->x + 0.04f, drawY - 0.06f,
                                    r, g, b);
+
+            // If ranged player, periodically shoot projectiles forward down their lane
+            if (players[i]->playerType == playerClass::RANGED) {
+                ranged_player* rp = static_cast<ranged_player*>(players[i]);
+                if (rp->shouldShoot()) {
+                    Projectile proj;
+                    proj.x = rp->x + 0.05f;
+                    proj.y = rp->y + rp->yOffset;
+                    proj.lane = rp->lane;
+                    proj.speed = 0.008f;
+                    proj.active = true;
+                    projectiles.push_back(proj);
+                }
+            }
+        }
+
+        // Move and draw projectiles fired by ranged players
+        for (size_t i = 0; i < projectiles.size(); i++) {
+            if (projectiles[i].active == true) {
+                projectiles[i].x = projectiles[i].x + projectiles[i].speed;
+
+                if (projectiles[i].x > 0.95f) {
+                    projectiles[i].active = false;
+                } else {
+                    addRectangle(vertices, projectiles[i].x - 0.02f, projectiles[i].y + 0.015f,
+                                           projectiles[i].x + 0.02f, projectiles[i].y - 0.015f,
+                                           1.0f, 0.85f, 0.1f); // Yellow projectile bullet
+                }
+            }
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, VBO);

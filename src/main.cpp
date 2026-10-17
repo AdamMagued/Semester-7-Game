@@ -291,7 +291,7 @@ int main() {
     int selectedPlayerType = 0;  // 0 = Melee (Key 1), 1 = Ranged (Key 2), 2 = Defense (Key 3)
     int coins = 100;             // Starting coins
     bool wasMouseDown = false;   // To detect a fresh mouse click
-    int selectedLane = 0;        // Currently selected active lane (0, 1, or 2)
+    bool selectedLanes[3] = {true, false, false}; // Active selected lanes (can toggle multiple)
 
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
@@ -395,13 +395,15 @@ int main() {
         }
 
         // Draw prominent selected lane highlight (stays visible even when hovering away!)
-        if (selectedLane == 0) {
+        if (selectedLanes[0]) {
             addRectangle(vertices, -0.80f,  0.62f, 0.98f,  0.20f, 0.30f, 0.72f, 0.30f); // Bright green tint
             addRectangle(vertices, -0.82f,  0.62f, -0.79f, 0.20f, 1.00f, 0.85f, 0.20f); // Gold active lane marker
-        } else if (selectedLane == 1) {
+        }
+        if (selectedLanes[1]) {
             addRectangle(vertices, -0.80f,  0.20f, 0.98f, -0.28f, 0.30f, 0.72f, 0.30f);
             addRectangle(vertices, -0.82f,  0.20f, -0.79f, -0.28f, 1.00f, 0.85f, 0.20f);
-        } else if (selectedLane == 2) {
+        }
+        if (selectedLanes[2]) {
             addRectangle(vertices, -0.80f, -0.28f, 0.98f, -0.82f, 0.30f, 0.72f, 0.30f);
             addRectangle(vertices, -0.82f, -0.28f, -0.79f, -0.82f, 1.00f, 0.85f, 0.20f);
         }
@@ -438,21 +440,24 @@ int main() {
                     selectedPlayerType = 2;
                 }
             }
-            // Click on a lane: select this lane exclusively & spawn player
+            // Click on a lane: toggle lane selection & spawn player
             else if (hoveredLane != -1) {
-                selectedLane = hoveredLane; // Make this the active selected lane!
+                selectedLanes[hoveredLane] = !selectedLanes[hoveredLane];
 
                 if (selectedPlayerType == 0 && coins >= 10) {
+                    selectedLanes[hoveredLane] = true;
                     melee_player* p = new melee_player();
                     p->setLane(hoveredLane);
                     players.push_back(p);
                     coins = coins - 10;
                 } else if (selectedPlayerType == 1 && coins >= 20) {
+                    selectedLanes[hoveredLane] = true;
                     ranged_player* p = new ranged_player();
                     p->setLane(hoveredLane);
                     players.push_back(p);
                     coins = coins - 20;
                 } else if (selectedPlayerType == 2 && coins >= 30) {
+                    selectedLanes[hoveredLane] = true;
                     defense_player* p = new defense_player();
                     p->setLane(hoveredLane);
                     // Place Defense at clicked X position on the lane!
@@ -469,16 +474,16 @@ int main() {
             wasMouseDown = false; // Reset on release
         }
 
-        // Check keyboard for Jump (W) and Duck (S) - ONLY for players in the selected lane!
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        // Check keyboard for Jump (W / Up) and Duck (S / Down) across all selected lanes
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
             for (size_t i = 0; i < players.size(); i++) {
-                if (players[i]->lane == selectedLane) {
+                if (selectedLanes[players[i]->lane]) {
                     players[i]->jump();
                 }
             }
-        } else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        } else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
             for (size_t i = 0; i < players.size(); i++) {
-                if (players[i]->lane == selectedLane) {
+                if (selectedLanes[players[i]->lane]) {
                     players[i]->duck();
                 }
             }

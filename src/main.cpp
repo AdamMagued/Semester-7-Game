@@ -517,6 +517,14 @@ int main() {
             }
             players[i]->updateJump();
 
+            // Remove dead players
+            if (players[i]->health <= 0) {
+                delete players[i];
+                players.erase(players.begin() + i);
+                i = i - 1;
+                continue;
+            }
+
             float drawY = players[i]->y + players[i]->yOffset;
             float r = 0.9f;
             float g = 0.2f;
@@ -528,9 +536,22 @@ int main() {
                 r = 0.85f; g = 0.65f; b = 0.2f; // Gold for Defense
             }
 
+            if (players[i]->damageFlashTimer > 0) {
+                r = 1.0f; g = 0.8f; b = 0.8f; // Flash on hit
+            }
+
             addRectangle(vertices, players[i]->x - 0.04f, drawY + 0.06f,
                                    players[i]->x + 0.04f, drawY - 0.06f,
                                    r, g, b);
+
+            // Health bar above player
+            float px = players[i]->x;
+            float barY = drawY + 0.085f;
+            addRectangle(vertices, px - 0.04f, barY + 0.006f, px + 0.04f, barY - 0.006f, 0.35f, 0.1f, 0.1f);
+            float hpRatio = (float)players[i]->health / (float)players[i]->maxHealth;
+            if (hpRatio < 0.0f) hpRatio = 0.0f;
+            if (hpRatio > 1.0f) hpRatio = 1.0f;
+            addRectangle(vertices, px - 0.04f, barY + 0.006f, px - 0.04f + 0.08f * hpRatio, barY - 0.006f, 0.2f, 0.85f, 0.2f);
 
             // If ranged player, periodically shoot projectiles forward down their lane
             if (players[i]->playerType == playerClass::RANGED) {

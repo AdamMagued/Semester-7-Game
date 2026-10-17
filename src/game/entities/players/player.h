@@ -21,7 +21,22 @@ class playerClass: public EntityClass{
     playerState playerStatus;
 
     int cost;
+    int maxHealth = 5;
+    bool isProtected = false;
+    int damageFlashTimer = 0;
     fightStrat* strat = nullptr;
+
+    void takeDamage(int amount) {
+        if (isProtected) {
+            return; // Protected by defense player
+        }
+        health = health - amount;
+        damageFlashTimer = 15;
+        if (health <= 0) {
+            health = 0;
+            playerStatus = defeated;
+        }
+    }
 
     float yOffset = 0.0f; // Height adjustment for jump and duck
     bool isJumping = false;
@@ -76,6 +91,10 @@ class playerClass: public EntityClass{
 
         if (crouchDelayTimer > 0) {
             crouchDelayTimer = crouchDelayTimer - 1;
+        }
+
+        if (damageFlashTimer > 0) {
+            damageFlashTimer = damageFlashTimer - 1;
         }
     }
 

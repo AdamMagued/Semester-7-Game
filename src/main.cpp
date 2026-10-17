@@ -125,9 +125,10 @@ int main() {
     addRectangle(vertices, -0.86f,  0.43f, -0.82f,  0.33f, 0.65f, 0.85f, 1.0f);  // right window
     addRectangle(vertices, -0.90f, -0.82f, -0.85f, -0.53f, 0.08f, 0.20f, 0.48f); // doorway
 
-    // Player setup
-    melee_player player1;
-    bool isSpawned = false;      // Player has not been placed yet
+    // Player and UI Card setup
+    std::vector<playerClass*> players;
+    int selectedPlayerType = 0;  // 0 = Melee (Key 1), 1 = Ranged (Key 2), 2 = Defense (Key 3)
+    int coins = 100;             // Starting coins
     bool wasMouseDown = false;   // To detect a fresh mouse click
 
     GLuint VAO, VBO;
@@ -167,6 +168,38 @@ int main() {
         float x = 2.0f * static_cast<float>(mouseX) / windowWidth - 1.0f;
         float y = 1.0f - 2.0f * static_cast<float>(mouseY) / windowHeight;
 
+        // --- Draw UI Cards in top-left ---
+        // Card 1: Melee (Cost 10)
+        if (selectedPlayerType == 0) {
+            addRectangle(vertices, -0.76f, 0.93f, -0.54f, 0.69f, 1.0f, 1.0f, 1.0f); // White selection border
+        }
+        if (coins >= 10) {
+            addRectangle(vertices, -0.75f, 0.92f, -0.55f, 0.70f, 0.85f, 0.25f, 0.25f); // Red card (unlocked)
+        } else {
+            addRectangle(vertices, -0.75f, 0.92f, -0.55f, 0.70f, 0.40f, 0.40f, 0.40f); // Grayscale (locked)
+        }
+
+        // Card 2: Ranged (Cost 20)
+        if (selectedPlayerType == 1) {
+            addRectangle(vertices, -0.51f, 0.93f, -0.29f, 0.69f, 1.0f, 1.0f, 1.0f); // White selection border
+        }
+        if (coins >= 20) {
+            addRectangle(vertices, -0.50f, 0.92f, -0.30f, 0.70f, 0.25f, 0.45f, 0.85f); // Blue card (unlocked)
+        } else {
+            addRectangle(vertices, -0.50f, 0.92f, -0.30f, 0.70f, 0.40f, 0.40f, 0.40f); // Grayscale (locked)
+        }
+
+        // Card 3: Defense (Cost 30)
+        if (selectedPlayerType == 2) {
+            addRectangle(vertices, -0.26f, 0.93f, -0.04f, 0.69f, 1.0f, 1.0f, 1.0f); // White selection border
+        }
+        if (coins >= 30) {
+            addRectangle(vertices, -0.25f, 0.92f, -0.05f, 0.70f, 0.85f, 0.65f, 0.20f); // Gold card (unlocked)
+        } else {
+            addRectangle(vertices, -0.25f, 0.92f, -0.05f, 0.70f, 0.40f, 0.40f, 0.40f); // Grayscale (locked)
+        }
+
+        // Check lane hovering
         int hoveredLane = -1;
         if (x >= -0.80f && x <= 0.98f) {
             if (y <= 0.62f && y >= 0.20f) hoveredLane = 0;
@@ -181,14 +214,48 @@ int main() {
         else if (hoveredLane == 2)
             addRectangle(vertices, -0.80f, -0.28f, 0.98f, -0.82f, 0.32f, 0.78f, 0.30f);
 
-        // Click mouse to spawn player on hovered lane!
+        // Select player type using keyboard 1, 2, 3
+        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
+            selectedPlayerType = 0;
+        } else if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
+            selectedPlayerType = 1;
+        } else if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
+            selectedPlayerType = 2;
+        }
+
+        // Click mouse: select card OR spawn player on lane
         int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
         if (mouseState == GLFW_PRESS && wasMouseDown == false) {
             wasMouseDown = true; // Registered click
 
-            if (hoveredLane != -1) {
-                player1.setLane(hoveredLane);
-                isSpawned = true;
+            // Click on top-left UI cards to select
+            if (y >= 0.70f && y <= 0.92f) {
+                if (x >= -0.75f && x <= -0.55f && coins >= 10) {
+                    selectedPlayerType = 0;
+                } else if (x >= -0.50f && x <= -0.30f && coins >= 20) {
+                    selectedPlayerType = 1;
+                } else if (x >= -0.25f && x <= -0.05f && coins >= 30) {
+                    selectedPlayerType = 2;
+                }
+            }
+            // Click on a lane to spawn the selected player
+            else if (hoveredLane != -1) {
+                if (selectedPlayerType == 0 && coins >= 10) {
+                    melee_player* p = new melee_player();
+                    p->setLane(hoveredLane);
+                    players.push_back(p);
+                    coins = coins - 10;
+                } else if (selectedPlayerType == 1 && coins >= 20) {
+                    ranged_player* p = new ranged_player();
+                    p->setLane(hoveredLane);
+                    players.push_back(p);
+                    coins = coins - 20;
+                } else if (selectedPlayerType == 2 && coins >= 30) {
+                    defense_player* p = new defense_player();
+                    p->setLane(hoveredLane);
+                    players.push_back(p);
+                    coins = coins - 30;
+                }
             }
         }
         if (mouseState == GLFW_RELEASE) {
@@ -197,22 +264,38 @@ int main() {
 
         // Check keyboard for Jump (W) and Duck (S)
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-            player1.jump();
+            for (size_t i = 0; i < players.size(); i++) {
+                players[i]->jump();
+            }
         } else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-            player1.duck();
+            for (size_t i = 0; i < players.size(); i++) {
+                players[i]->duck();
+            }
         } else {
-            player1.stand();
+            for (size_t i = 0; i < players.size(); i++) {
+                players[i]->stand();
+            }
         }
 
-        // Only move and draw the player IF they have been spawned!
-        if (isSpawned == true) {
-            player1.move();
-            player1.updateJump(); // Handle jump countdown (Dino game style)
+        // Move and draw each spawned player
+        for (size_t i = 0; i < players.size(); i++) {
+            players[i]->move();
+            players[i]->updateJump();
 
-            float drawY = player1.y + player1.yOffset;
-            addRectangle(vertices, player1.x - 0.04f, drawY + 0.06f,
-                                   player1.x + 0.04f, drawY - 0.06f,
-                                   0.9f, 0.2f, 0.2f); // Red player box
+            float drawY = players[i]->y + players[i]->yOffset;
+            float r = 0.9f;
+            float g = 0.2f;
+            float b = 0.2f; // Red for Melee
+
+            if (players[i]->playerType == playerClass::RANGED) {
+                r = 0.2f; g = 0.5f; b = 0.9f; // Blue for Ranged
+            } else if (players[i]->playerType == playerClass::DEFENSE) {
+                r = 0.85f; g = 0.65f; b = 0.2f; // Gold for Defense
+            }
+
+            addRectangle(vertices, players[i]->x - 0.04f, drawY + 0.06f,
+                                   players[i]->x + 0.04f, drawY - 0.06f,
+                                   r, g, b);
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -227,6 +310,10 @@ int main() {
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+    }
+
+    for (size_t i = 0; i < players.size(); i++) {
+        delete players[i];
     }
 
     glDeleteVertexArrays(1, &VAO);

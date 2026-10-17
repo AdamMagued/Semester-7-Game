@@ -553,6 +553,29 @@ int main() {
             if (hpRatio > 1.0f) hpRatio = 1.0f;
             addRectangle(vertices, px - 0.04f, barY + 0.006f, px - 0.04f + 0.08f * hpRatio, barY - 0.006f, 0.2f, 0.85f, 0.2f);
 
+            // Check if protected behind a defense player on the same lane
+            bool protectedByDefense = false;
+            if (players[i]->playerType != playerClass::DEFENSE) {
+                for (size_t d = 0; d < players.size(); d++) {
+                    if (players[d]->playerType == playerClass::DEFENSE && players[d]->lane == players[i]->lane) {
+                        if (players[i]->x < players[d]->x) {
+                            protectedByDefense = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            players[i]->isProtected = protectedByDefense;
+            if (protectedByDefense) {
+                players[i]->playerStatus = playerClass::invulnerable;
+                // Straight vertical blue line as a shield in front of protected player
+                addRectangle(vertices, players[i]->x + 0.05f, drawY + 0.07f,
+                                       players[i]->x + 0.06f, drawY - 0.07f,
+                                       0.2f, 0.5f, 1.0f);
+            } else {
+                players[i]->playerStatus = playerClass::vulnerable;
+            }
+
             // If ranged player, periodically shoot projectiles forward down their lane
             if (players[i]->playerType == playerClass::RANGED) {
                 ranged_player* rp = static_cast<ranged_player*>(players[i]);

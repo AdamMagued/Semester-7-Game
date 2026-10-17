@@ -71,6 +71,8 @@ static const char* getGlyph(char c) {
         case 'S': return "###" "#.." "###" "..#" "###";
         case 'T': return "###" ".#." ".#." ".#." ".#.";
         case 'U': return "#.#" "#.#" "#.#" "#.#" "###";
+        case 'V': return "#.#" "#.#" "#.#" "#.#" ".#.";
+        case 'W': return "#.#" "#.#" "#.#" "###" "#.#";
         default:  return "..." "..." "..." "..." "...";
     }
 }
@@ -292,6 +294,9 @@ int main() {
     int coins = 100;             // Starting coins
     bool wasMouseDown = false;   // To detect a fresh mouse click
     bool selectedLanes[3] = {true, false, false}; // Active selected lanes (can toggle multiple)
+    bool isPaused = false;
+    bool wasEscDown = false;
+    bool isGameOver = false;
 
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
@@ -416,18 +421,65 @@ int main() {
         else if (hoveredLane == 2)
             addRectangle(vertices, -0.80f, -0.28f, 0.98f, -0.82f, 0.38f, 0.82f, 0.38f);
 
+        // Check Escape key for pause
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+            if (!wasEscDown) {
+                wasEscDown = true;
+                if (!isGameOver) {
+                    isPaused = !isPaused;
+                }
+            }
+        } else {
+            wasEscDown = false;
+        }
+
+        // Check R key to restart game
+        if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
+            if (isPaused || isGameOver) {
+                for (size_t p = 0; p < players.size(); p++) {
+                    delete players[p];
+                }
+                players.clear();
+                projectiles.clear();
+                collectibles.clear();
+
+                enemies.clear();
+                enemies.push_back(Enemy(0, EASY));
+                enemies.push_back(Enemy(1, MEDIUM));
+                enemies.push_back(Enemy(2, HARD));
+
+                coins = 100;
+                selectedPlayerType = 0;
+                selectedLanes[0] = true;
+                selectedLanes[1] = false;
+                selectedLanes[2] = false;
+                isPaused = false;
+                isGameOver = false;
+            }
+        }
+
+        // Check if any active enemy breached the home base (x <= -0.80f)
+        for (size_t j = 0; j < enemies.size(); j++) {
+            if (enemies[j].active && enemies[j].x <= -0.80f) {
+                isGameOver = true;
+                break;
+            }
+        }
+
         // Select player type using keyboard 1, 2, 3
-        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
-            selectedPlayerType = 0;
-        } else if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
-            selectedPlayerType = 1;
-        } else if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
-            selectedPlayerType = 2;
+        if (!isPaused && !isGameOver) {
+            if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
+                selectedPlayerType = 0;
+            } else if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
+                selectedPlayerType = 1;
+            } else if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
+                selectedPlayerType = 2;
+            }
         }
 
         // Click mouse: select card OR select lane & spawn player
         int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
-        if (mouseState == GLFW_PRESS && wasMouseDown == false) {
+        if (!isPaused && !isGameOver && mouseState == GLFW_PRESS && wasMouseDown == false) {
             wasMouseDown = true; // Registered click
 
             // Click on top-left UI cards to select
@@ -475,21 +527,23 @@ int main() {
         }
 
         // Check keyboard for Jump (W / Up) and Duck (S / Down) across all selected lanes
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-            for (size_t i = 0; i < players.size(); i++) {
-                if (selectedLanes[players[i]->lane]) {
-                    players[i]->jump();
+        if (!isPaused && !isGameOver) {
+            if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+                for (size_t i = 0; i < players.size(); i++) {
+                    if (selectedLanes[players[i]->lane]) {
+                        players[i]->jump();
+                    }
                 }
-            }
-        } else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-            for (size_t i = 0; i < players.size(); i++) {
-                if (selectedLanes[players[i]->lane]) {
-                    players[i]->duck();
+            } else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+                for (size_t i = 0; i < players.size(); i++) {
+                    if (selectedLanes[players[i]->lane]) {
+                        players[i]->duck();
+                    }
                 }
-            }
-        } else {
-            for (size_t i = 0; i < players.size(); i++) {
-                players[i]->stand();
+            } else {
+                for (size_t i = 0; i < players.size(); i++) {
+                    players[i]->stand();
+                }
             }
         }
 
@@ -497,50 +551,53 @@ int main() {
         for (size_t i = 0; i < players.size(); i++) {
             bool inMeleeCombat = false;
 
-            // Check melee attack collision with enemies
-            if (players[i]->playerType == playerClass::MELEE) {
-                melee_player* mp = static_cast<melee_player*>(players[i]);
-                if (mp->attackCooldown > 0) {
-                    mp->attackCooldown = mp->attackCooldown - 1;
-                }
+            // Update player combat and movement if not paused or game over
+            if (!isPaused && !isGameOver) {
+                // Check melee attack collision with enemies
+                if (players[i]->playerType == playerClass::MELEE) {
+                    melee_player* mp = static_cast<melee_player*>(players[i]);
+                    if (mp->attackCooldown > 0) {
+                        mp->attackCooldown = mp->attackCooldown - 1;
+                    }
 
-                for (size_t j = 0; j < enemies.size(); j++) {
-                    if (enemies[j].active && enemies[j].lane == mp->lane) {
-                        float dist = enemies[j].x - mp->x;
-                        if (dist > 0.0f && dist < 0.12f) {
-                            inMeleeCombat = true; // Enemy in melee combat range!
-                            if (mp->attackCooldown <= 0) {
-                                mp->doAttack(); // Trigger strategy attack (punched)
-                                enemies[j].health = enemies[j].health - mp->damage;
-                                mp->attackCooldown = 50; // Punch cooldown (~0.8s)
+                    for (size_t j = 0; j < enemies.size(); j++) {
+                        if (enemies[j].active && enemies[j].lane == mp->lane) {
+                            float dist = enemies[j].x - mp->x;
+                            if (dist > 0.0f && dist < 0.12f) {
+                                inMeleeCombat = true; // Enemy in melee combat range!
+                                if (mp->attackCooldown <= 0) {
+                                    mp->doAttack(); // Trigger strategy attack (punched)
+                                    enemies[j].health = enemies[j].health - mp->damage;
+                                    mp->attackCooldown = 50; // Punch cooldown (~0.8s)
 
-                                if (enemies[j].health <= 0) {
-                                    enemies[j].active = false;
-                                    Collectible c;
-                                    c.x = enemies[j].x;
-                                    c.y = enemies[j].y;
-                                    c.lane = enemies[j].lane;
-                                    c.value = 10;
-                                    c.active = true;
-                                    collectibles.push_back(c);
+                                    if (enemies[j].health <= 0) {
+                                        enemies[j].active = false;
+                                        Collectible c;
+                                        c.x = enemies[j].x;
+                                        c.y = enemies[j].y;
+                                        c.lane = enemies[j].lane;
+                                        c.value = 10;
+                                        c.active = true;
+                                        collectibles.push_back(c);
+                                    }
                                 }
+                                // Visual fist punch towards enemy
+                                float punchY = mp->y + mp->yOffset;
+                                addRectangle(vertices, mp->x + 0.04f, punchY + 0.02f,
+                                                       mp->x + 0.09f, punchY - 0.02f,
+                                                       1.0f, 0.4f, 0.4f);
+                                break;
                             }
-                            // Visual fist punch towards enemy
-                            float punchY = mp->y + mp->yOffset;
-                            addRectangle(vertices, mp->x + 0.04f, punchY + 0.02f,
-                                                   mp->x + 0.09f, punchY - 0.02f,
-                                                   1.0f, 0.4f, 0.4f);
-                            break;
                         }
                     }
                 }
-            }
 
-            // Only advance forward if not currently in melee combat
-            if (inMeleeCombat == false) {
-                players[i]->move();
+                // Only advance forward if not currently in melee combat
+                if (inMeleeCombat == false) {
+                    players[i]->move();
+                }
+                players[i]->updateJump();
             }
-            players[i]->updateJump();
 
             // Remove dead players
             if (players[i]->health <= 0) {
@@ -602,7 +659,7 @@ int main() {
             }
 
             // If ranged player, periodically shoot projectiles forward down their lane
-            if (players[i]->playerType == playerClass::RANGED) {
+            if (!isPaused && !isGameOver && players[i]->playerType == playerClass::RANGED) {
                 ranged_player* rp = static_cast<ranged_player*>(players[i]);
                 if (rp->shouldShoot()) {
                     Projectile proj;
@@ -619,33 +676,37 @@ int main() {
         // Move and draw projectiles fired by ranged players
         for (size_t i = 0; i < projectiles.size(); i++) {
             if (projectiles[i].active == true) {
-                projectiles[i].x = projectiles[i].x + projectiles[i].speed;
+                if (!isPaused && !isGameOver) {
+                    projectiles[i].x = projectiles[i].x + projectiles[i].speed;
 
-                // Check collision with enemies
-                for (size_t j = 0; j < enemies.size(); j++) {
-                    if (enemies[j].active && enemies[j].lane == projectiles[i].lane) {
-                        float dist = std::abs(projectiles[i].x - enemies[j].x);
-                        if (dist < 0.05f) {
-                            projectiles[i].active = false;
-                            enemies[j].health = enemies[j].health - 1;
-                            if (enemies[j].health <= 0) {
-                                enemies[j].active = false;
-                                Collectible c;
-                                c.x = enemies[j].x;
-                                c.y = enemies[j].y;
-                                c.lane = enemies[j].lane;
-                                c.value = 10;
-                                c.active = true;
-                                collectibles.push_back(c);
+                    // Check collision with enemies
+                    for (size_t j = 0; j < enemies.size(); j++) {
+                        if (enemies[j].active && enemies[j].lane == projectiles[i].lane) {
+                            float dist = std::abs(projectiles[i].x - enemies[j].x);
+                            if (dist < 0.05f) {
+                                projectiles[i].active = false;
+                                enemies[j].health = enemies[j].health - 1;
+                                if (enemies[j].health <= 0) {
+                                    enemies[j].active = false;
+                                    Collectible c;
+                                    c.x = enemies[j].x;
+                                    c.y = enemies[j].y;
+                                    c.lane = enemies[j].lane;
+                                    c.value = 10;
+                                    c.active = true;
+                                    collectibles.push_back(c);
+                                }
+                                break;
                             }
-                            break;
                         }
+                    }
+
+                    if (projectiles[i].x > 0.95f) {
+                        projectiles[i].active = false;
                     }
                 }
 
-                if (projectiles[i].x > 0.95f) {
-                    projectiles[i].active = false;
-                } else if (projectiles[i].active == true) {
+                if (projectiles[i].active == true) {
                     addRectangle(vertices, projectiles[i].x - 0.02f, projectiles[i].y + 0.015f,
                                            projectiles[i].x + 0.02f, projectiles[i].y - 0.015f,
                                            1.0f, 0.85f, 0.1f); // Yellow projectile bullet
@@ -657,13 +718,15 @@ int main() {
         for (size_t i = 0; i < collectibles.size(); i++) {
             if (collectibles[i].active == true) {
                 // Check if any moving player walks over the dropped coin
-                for (size_t p = 0; p < players.size(); p++) {
-                    if (players[p]->lane == collectibles[i].lane) {
-                        float dist = std::abs(players[p]->x - collectibles[i].x);
-                        if (dist < 0.06f) {
-                            coins = coins + collectibles[i].value;
-                            collectibles[i].active = false;
-                            break;
+                if (!isPaused && !isGameOver) {
+                    for (size_t p = 0; p < players.size(); p++) {
+                        if (players[p]->lane == collectibles[i].lane) {
+                            float dist = std::abs(players[p]->x - collectibles[i].x);
+                            if (dist < 0.06f) {
+                                coins = coins + collectibles[i].value;
+                                collectibles[i].active = false;
+                                break;
+                            }
                         }
                     }
                 }
@@ -680,7 +743,9 @@ int main() {
         // Move and draw active enemies
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active == true) {
-                enemies[j].moveLeft();
+                if (!isPaused && !isGameOver) {
+                    enemies[j].moveLeft();
+                }
 
                 // Draw enemy (color becomes deeper red as health drops)
                 float healthRatio = (float)enemies[j].health / 5.0f;
@@ -692,6 +757,22 @@ int main() {
                                        enemies[j].x + 0.04f, enemies[j].y - 0.06f,
                                        er, eg, eb);
             }
+        }
+
+        // Draw Pause overlay
+        if (isPaused) {
+            addRectangle(vertices, -0.45f, 0.25f, 0.45f, -0.25f, 0.08f, 0.08f, 0.12f);
+            drawText(vertices, "PAUSED", -0.16f, 0.15f, 0.005f, 1.0f, 1.0f, 1.0f);
+            drawText(vertices, "ESC TO RESUME", -0.28f, 0.00f, 0.0035f, 0.85f, 0.85f, 0.85f);
+            drawText(vertices, "R TO RESTART", -0.26f, -0.12f, 0.0035f, 0.85f, 0.85f, 0.85f);
+        }
+
+        // Draw Game Over overlay
+        if (isGameOver) {
+            addRectangle(vertices, -0.45f, 0.25f, 0.45f, -0.25f, 0.15f, 0.05f, 0.05f);
+            drawText(vertices, "GAME OVER", -0.22f, 0.15f, 0.005f, 1.0f, 0.25f, 0.25f);
+            drawText(vertices, "HOUSE BREACHED", -0.30f, 0.00f, 0.0035f, 1.0f, 0.85f, 0.85f);
+            drawText(vertices, "PRESS R TO RESTART", -0.38f, -0.12f, 0.0035f, 1.0f, 1.0f, 1.0f);
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, VBO);

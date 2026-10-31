@@ -780,7 +780,9 @@ int main() {
         }
 
         // Move and draw active enemies
-        enemyAttackTimer = enemyAttackTimer + 1;
+        if (!isPaused && !isGameOver) {
+            enemyAttackTimer = enemyAttackTimer + 1;
+        }
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active == true) {
                 if (!isPaused && !isGameOver) {
@@ -808,6 +810,9 @@ int main() {
                         // Only advance forward during walk phase if not blocked by player
                         if (enemyBlocked == false) {
                             enemies[j].moveLeft();
+                            if (enemies[j].x <= -0.80f) {
+                                isGameOver = true;
+                            }
                         }
                     } else if (animCycle == 240) {
                         // Frame 5 release: throw spear straight horizontally down the lane!
@@ -878,6 +883,8 @@ int main() {
             }
         }
 
+        const size_t sceneVertexCount = vertices.size();
+
         // Draw Pause overlay
         if (isPaused) {
             addRectangle(vertices, -0.45f, 0.25f, 0.45f, -0.25f, 0.08f, 0.08f, 0.12f);
@@ -918,7 +925,7 @@ int main() {
 
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size() / 6));
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(sceneVertexCount / 6));
 
         if (playerTexture) {
             for (size_t i = 0; i < players.size(); i++) {
@@ -1024,6 +1031,13 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, 6);
                 }
             }
+        }
+
+        if (isPaused || isGameOver) {
+            glUseProgram(shaderProgram);
+            glBindVertexArray(VAO);
+            glDrawArrays(GL_TRIANGLES, static_cast<GLint>(sceneVertexCount / 6),
+                         static_cast<GLsizei>((vertices.size() - sceneVertexCount) / 6));
         }
 
         glfwSwapBuffers(window);

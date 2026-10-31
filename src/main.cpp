@@ -130,6 +130,24 @@ static void drawText(std::vector<float>& vertices, const std::string& text, floa
     }
 }
 
+bool drawMenuButton(std::vector<float>& vertices, const std::string& text,
+                    float top, float mouseX, float mouseY, bool clicked) {
+    bool hovered = false;
+    if (mouseX >= -0.30f && mouseX <= 0.30f && mouseY <= top && mouseY >= top - 0.15f) {
+        hovered = true;
+    }
+    float shade = 0.25f;
+    if (hovered) {
+        shade = 0.40f;
+    }
+    addRectangle(vertices, -0.30f, top, 0.30f, top - 0.15f, shade, shade, shade);
+    drawText(vertices, text, -0.25f, top - 0.045f, 0.006f);
+    if (hovered && clicked) {
+        return true;
+    }
+    return false;
+}
+
 void framebufferSizeCallback(GLFWwindow*, int width, int height) {
     glViewport(0, 0, width, height);
 }
@@ -219,7 +237,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Triangle", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(800, 600, "Lane Defense", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create window\n";
         glfwTerminate();
@@ -343,6 +361,9 @@ int main() {
     bool wasEscDown = false;
     bool isGameOver = false;
     bool hasWon = false;
+    bool isMainMenu = true;
+    bool restartRequested = false;
+    bool wasEnterDown = false;
     const float contactDistance = 0.11f;
 
     GLuint VAO, VBO;
@@ -410,6 +431,45 @@ int main() {
 
         float x = 2.0f * static_cast<float>(mouseX) / windowWidth - 1.0f;
         float y = 1.0f - 2.0f * static_cast<float>(mouseY) / windowHeight;
+
+        int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+        bool mouseClicked = false;
+        if (mouseState == GLFW_PRESS && !wasMouseDown) {
+            mouseClicked = true;
+        }
+        wasMouseDown = (mouseState == GLFW_PRESS);
+        bool enterDown = (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS);
+        bool enterPressed = enterDown && !wasEnterDown;
+        wasEnterDown = enterDown;
+
+        if ((isPaused || isGameOver || hasWon) && glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
+            isMainMenu = true;
+        }
+        if (isMainMenu) {
+            std::vector<float> menuVertices;
+            drawText(menuVertices, "LANE DEFENSE", -0.25f, 0.40f, 0.008f);
+            bool startClicked = drawMenuButton(menuVertices, "START", 0.18f, x, y, mouseClicked);
+            bool exitClicked = drawMenuButton(menuVertices, "EXIT", -0.05f, x, y, mouseClicked);
+            drawText(menuVertices, "ENTER TO START", -0.25f, -0.35f, 0.005f);
+            if (startClicked || enterPressed) {
+                isMainMenu = false;
+                restartRequested = true;
+            }
+            if (exitClicked) {
+                glfwSetWindowShouldClose(window, GLFW_TRUE);
+            }
+            accumulatedTime = 0.0;
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBufferData(GL_ARRAY_BUFFER, menuVertices.size() * sizeof(float), menuVertices.data(), GL_DYNAMIC_DRAW);
+            glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            glUseProgram(shaderProgram);
+            glBindVertexArray(VAO);
+            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(menuVertices.size() / 6));
+            glfwSwapBuffers(window);
+            glfwPollEvents();
+            continue;
+        }
 
         // --- Draw UI Cards in top-left ---
         // Card 1: Melee (Cost 10) - Red Box
@@ -497,33 +557,37 @@ int main() {
             wasEscDown = false;
         }
 
-        // Check R key to restart game
-        if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
-            if (isPaused || isGameOver || hasWon) {
-                for (size_t p = 0; p < players.size(); p++) {
-                    delete players[p];
-                }
-                players.clear();
-                projectiles.clear();
-                enemyProjectiles.clear();
-                collectibles.clear();
-
-                enemies.clear();
-                currentWave = 1;
-                enemiesSpawned = 0;
-                spawnTimer = 0;
-
-                coins = 30;
-                selectedPlayerType = -1;
-                placementLane = -1;
-                selectedLanes[0] = false;
-                selectedLanes[1] = false;
-                selectedLanes[2] = false;
-                isPaused = false;
-                isGameOver = false;
-                hasWon = false;
-            }
+        if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS && (isPaused || isGameOver || hasWon)) {
+            restartRequested = true;
         }
+        if (restartRequested) {
+            for (size_t p = 0; p < players.size(); p++) {
+                delete players[p];
+            }
+            players.clear();
+            projectiles.clear();
+            enemyProjectiles.clear();
+            collectibles.clear();
+
+            enemies.clear();
+            currentWave = 1;
+            enemiesSpawned = 0;
+            spawnTimer = 0;
+
+            coins = 30;
+            selectedPlayerType = -1;
+            placementLane = -1;
+            selectedLanes[0] = false;
+            selectedLanes[1] = false;
+            selectedLanes[2] = false;
+            isPaused = false;
+            isGameOver = false;
+            hasWon = false;
+            restartRequested = false;
+            accumulatedTime = 0.0;
+            lastFrameTime = glfwGetTime();
+        }
+
 
         // Check if any active enemy breached the home base (x <= -0.80f)
         for (size_t j = 0; j < enemies.size(); j++) {
@@ -583,8 +647,7 @@ int main() {
         wasPlayerKeyDown = isPlayerKeyDown;
 
         // Lane clicks only select. Cards or number keys buy one player.
-        int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
-        if (!isPaused && !isGameOver && !hasWon && mouseState == GLFW_PRESS && wasMouseDown == false) {
+        if (!isPaused && !isGameOver && !hasWon && mouseClicked) {
             if (y >= 0.73f && y <= 0.92f) {
                 if (x >= -0.75f && x <= -0.55f && coins >= 10) {
                     playerToPlace = 0;
@@ -608,7 +671,6 @@ int main() {
                 }
             }
         }
-        wasMouseDown = (mouseState == GLFW_PRESS);
 
         if (placementLane != -1) {
             if (playerToPlace == 0 && coins >= 10) {
@@ -992,25 +1054,40 @@ int main() {
 
         // Draw Pause overlay
         if (isPaused) {
-            addRectangle(vertices, -0.45f, 0.25f, 0.45f, -0.25f, 0.08f, 0.08f, 0.12f);
-            drawText(vertices, "PAUSED", -0.16f, 0.15f, 0.005f, 1.0f, 1.0f, 1.0f);
-            drawText(vertices, "ESC TO RESUME", -0.28f, 0.00f, 0.0035f, 0.85f, 0.85f, 0.85f);
-            drawText(vertices, "R TO RESTART", -0.26f, -0.12f, 0.0035f, 0.85f, 0.85f, 0.85f);
+            addRectangle(vertices, -0.45f, 0.48f, 0.45f, -0.50f, 0.08f, 0.08f, 0.12f);
+            drawText(vertices, "PAUSED", -0.16f, 0.36f, 0.005f);
+            if (drawMenuButton(vertices, "CONTINUE", 0.22f, x, y, mouseClicked)) {
+                isPaused = false;
+            }
+            if (drawMenuButton(vertices, "RESTART", -0.01f, x, y, mouseClicked)) {
+                restartRequested = true;
+            }
+            if (drawMenuButton(vertices, "MAIN MENU", -0.24f, x, y, mouseClicked)) {
+                isMainMenu = true;
+            }
+            drawText(vertices, "ESC TO RESUME  M TO MENU", -0.36f, -0.44f, 0.0035f);
         }
 
         // Draw Game Over overlay
         if (isGameOver) {
-            addRectangle(vertices, -0.45f, 0.25f, 0.45f, -0.25f, 0.15f, 0.05f, 0.05f);
-            drawText(vertices, "GAME OVER", -0.22f, 0.15f, 0.005f, 1.0f, 0.25f, 0.25f);
-            drawText(vertices, "HOUSE BREACHED", -0.30f, 0.00f, 0.0035f, 1.0f, 0.85f, 0.85f);
-            drawText(vertices, "PRESS R TO RESTART", -0.38f, -0.12f, 0.0035f, 1.0f, 1.0f, 1.0f);
+            addRectangle(vertices, -0.45f, 0.48f, 0.45f, -0.50f, 0.15f, 0.05f, 0.05f);
+            drawText(vertices, "GAME OVER", -0.22f, 0.36f, 0.005f, 1.0f, 0.25f, 0.25f);
+            drawText(vertices, "HOUSE BREACHED", -0.30f, 0.20f, 0.0035f, 1.0f, 0.85f, 0.85f);
         }
 
         if (hasWon) {
-            addRectangle(vertices, -0.45f, 0.25f, 0.45f, -0.25f, 0.05f, 0.15f, 0.05f);
-            drawText(vertices, "YOU WIN", -0.17f, 0.15f, 0.005f, 0.4f, 1.0f, 0.4f);
-            drawText(vertices, "ALL THREE WAVES CLEARED", -0.40f, 0.00f, 0.0035f);
-            drawText(vertices, "PRESS R TO RESTART", -0.38f, -0.12f, 0.0035f);
+            addRectangle(vertices, -0.45f, 0.48f, 0.45f, -0.50f, 0.05f, 0.15f, 0.05f);
+            drawText(vertices, "YOU WIN", -0.17f, 0.36f, 0.005f, 0.4f, 1.0f, 0.4f);
+            drawText(vertices, "ALL THREE WAVES CLEARED", -0.40f, 0.20f, 0.0035f);
+        }
+        if (isGameOver || hasWon) {
+            if (drawMenuButton(vertices, "RESTART", 0.03f, x, y, mouseClicked)) {
+                restartRequested = true;
+            }
+            if (drawMenuButton(vertices, "MAIN MENU", -0.20f, x, y, mouseClicked)) {
+                isMainMenu = true;
+            }
+            drawText(vertices, "R TO RESTART  M TO MENU", -0.36f, -0.44f, 0.0035f);
         }
 
         // Catch up gameplay before drawing another frame.

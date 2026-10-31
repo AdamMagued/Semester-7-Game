@@ -3,12 +3,23 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
+#include <cstdlib>
+#include <ctime>
 #define STB_IMAGE_IMPLEMENTATION
 #include "../assets/textures/stb_image.h"
 #include "game/entities/players/melee/melee_player.h"
 #include "game/entities/players/defense/defense_player.h"
 #include "game/entities/players/ranged/ranged_player.h"
 #include "game/entities/enemies/Enemy.h"
+
+bool hasActiveEnemies(const std::vector<Enemy>& enemies) {
+    for (size_t i = 0; i < enemies.size(); i++) {
+        if (enemies[i].active) {
+            return true;
+        }
+    }
+    return false;
+}
 
 bool hasDefenseInFront(playerClass* player, const std::vector<playerClass*>& players) {
     if (player->health <= 0 || player->playerType == playerClass::DEFENSE) {
@@ -315,9 +326,12 @@ int main() {
     std::vector<Projectile> enemyProjectiles;
     std::vector<Collectible> collectibles;
     std::vector<Enemy> enemies;
-    enemies.push_back(Enemy(0, EASY));
-    enemies.push_back(Enemy(1, MEDIUM));
-    enemies.push_back(Enemy(2, HARD));
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    const int enemiesPerWave[3] = {3, 5, 10};
+    const int framesBetweenSpawns = 180;
+    int currentWave = 1;
+    int enemiesSpawned = 0;
+    int spawnTimer = 0;
 
     int selectedPlayerType = -1;
     int placementLane = -1;
@@ -477,9 +491,9 @@ int main() {
                 collectibles.clear();
 
                 enemies.clear();
-                enemies.push_back(Enemy(0, EASY));
-                enemies.push_back(Enemy(1, MEDIUM));
-                enemies.push_back(Enemy(2, HARD));
+                currentWave = 1;
+                enemiesSpawned = 0;
+                spawnTimer = 0;
 
                 coins = 30;
                 selectedPlayerType = -1;
@@ -497,6 +511,38 @@ int main() {
             if (enemies[j].active && enemies[j].x <= -0.80f) {
                 isGameOver = true;
                 break;
+            }
+        }
+
+        if (!isPaused && !isGameOver) {
+            // Finish spawning and defeat every enemy before starting the next wave.
+            if (enemiesSpawned == enemiesPerWave[currentWave - 1] &&
+                !hasActiveEnemies(enemies) && currentWave < 3) {
+                currentWave = currentWave + 1;
+                enemiesSpawned = 0;
+                spawnTimer = 0;
+            }
+
+            if (enemiesSpawned < enemiesPerWave[currentWave - 1]) {
+                if (spawnTimer > 0) {
+                    spawnTimer = spawnTimer - 1;
+                }
+                if (spawnTimer == 0) {
+                    EnemyType type = EASY;
+                    if (currentWave == 2 && enemiesSpawned % 2 == 1) {
+                        type = MEDIUM;
+                    } else if (currentWave == 3) {
+                        if (enemiesSpawned % 3 == 1) {
+                            type = MEDIUM;
+                        } else if (enemiesSpawned % 3 == 2) {
+                            type = HARD;
+                        }
+                    }
+                    int lane = std::rand() % 3;
+                    enemies.push_back(Enemy(lane, type));
+                    enemiesSpawned = enemiesSpawned + 1;
+                    spawnTimer = framesBetweenSpawns;
+                }
             }
         }
 
@@ -906,6 +952,16 @@ int main() {
                     }
                 }
             }
+        }
+
+        drawText(vertices, "WAVE " + std::to_string(currentWave) + " OF 3",
+                 0.36f, 0.76f, 0.0035f);
+        if (enemiesSpawned == enemiesPerWave[currentWave - 1]) {
+            drawText(vertices, "DEFEAT REMAINING ENEMIES", 0.36f, 0.69f, 0.0035f);
+        } else {
+            drawText(vertices, "SPAWNED " + std::to_string(enemiesSpawned) + " OF " +
+                     std::to_string(enemiesPerWave[currentWave - 1]),
+                     0.36f, 0.69f, 0.0035f);
         }
 
         const size_t sceneVertexCount = vertices.size();

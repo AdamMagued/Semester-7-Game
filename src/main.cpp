@@ -342,6 +342,7 @@ int main() {
     bool isPaused = false;
     bool wasEscDown = false;
     bool isGameOver = false;
+    bool hasWon = false;
     const float contactDistance = 0.11f;
 
     GLuint VAO, VBO;
@@ -471,7 +472,7 @@ int main() {
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
             if (!wasEscDown) {
                 wasEscDown = true;
-                if (!isGameOver) {
+                if (!isGameOver && !hasWon) {
                     isPaused = !isPaused;
                 }
             }
@@ -481,7 +482,7 @@ int main() {
 
         // Check R key to restart game
         if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
-            if (isPaused || isGameOver) {
+            if (isPaused || isGameOver || hasWon) {
                 for (size_t p = 0; p < players.size(); p++) {
                     delete players[p];
                 }
@@ -503,6 +504,7 @@ int main() {
                 selectedLanes[2] = false;
                 isPaused = false;
                 isGameOver = false;
+                hasWon = false;
             }
         }
 
@@ -514,7 +516,7 @@ int main() {
             }
         }
 
-        if (!isPaused && !isGameOver) {
+        if (!isPaused && !isGameOver && !hasWon) {
             // Finish spawning and defeat every enemy before starting the next wave.
             if (enemiesSpawned == enemiesPerWave[currentWave - 1] &&
                 !hasActiveEnemies(enemies) && currentWave < 3) {
@@ -558,14 +560,14 @@ int main() {
             playerToPlace = 2;
             isPlayerKeyDown = true;
         }
-        if (wasPlayerKeyDown || isPaused || isGameOver) {
+        if (wasPlayerKeyDown || isPaused || isGameOver || hasWon) {
             playerToPlace = -1;
         }
         wasPlayerKeyDown = isPlayerKeyDown;
 
         // Lane clicks only select. Cards or number keys buy one player.
         int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
-        if (!isPaused && !isGameOver && mouseState == GLFW_PRESS && wasMouseDown == false) {
+        if (!isPaused && !isGameOver && !hasWon && mouseState == GLFW_PRESS && wasMouseDown == false) {
             if (y >= 0.73f && y <= 0.92f) {
                 if (x >= -0.75f && x <= -0.55f && coins >= 10) {
                     playerToPlace = 0;
@@ -615,7 +617,7 @@ int main() {
         drawText(vertices, "SELECT LANE THEN CARD OR 1 2 3", -0.72f, -0.90f, 0.005f);
 
         // Check keyboard for Jump (W / Up) and Duck (S / Down) across all selected lanes
-        if (!isPaused && !isGameOver) {
+        if (!isPaused && !isGameOver && !hasWon) {
             if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
                 for (size_t i = 0; i < players.size(); i++) {
                     if (selectedLanes[players[i]->lane]) {
@@ -646,7 +648,7 @@ int main() {
             bool isPlayerBlocked = false;
 
             // Update player combat and movement if not paused or game over
-            if (!isPaused && !isGameOver) {
+            if (!isPaused && !isGameOver && !hasWon) {
                 // Check if any active enemy on the same lane blocks forward movement
                 for (size_t j = 0; j < enemies.size(); j++) {
                     if (enemies[j].active && enemies[j].lane == players[i]->lane) {
@@ -754,7 +756,7 @@ int main() {
             }
 
             // If ranged player, periodically shoot projectiles forward down their lane
-            if (!isPaused && !isGameOver && players[i]->playerType == playerClass::RANGED) {
+            if (!isPaused && !isGameOver && !hasWon && players[i]->playerType == playerClass::RANGED) {
                 ranged_player* rp = static_cast<ranged_player*>(players[i]);
                 if (rp->shouldShoot()) {
                     Projectile proj;
@@ -771,7 +773,7 @@ int main() {
         // Move and draw projectiles fired by ranged players
         for (size_t i = 0; i < projectiles.size(); i++) {
             if (projectiles[i].active == true) {
-                if (!isPaused && !isGameOver) {
+                if (!isPaused && !isGameOver && !hasWon) {
                     projectiles[i].x = projectiles[i].x + projectiles[i].speed;
 
                     // Check collision with enemies
@@ -813,7 +815,7 @@ int main() {
         for (size_t i = 0; i < collectibles.size(); i++) {
             if (collectibles[i].active == true) {
                 // Check if any moving player walks over the dropped coin
-                if (!isPaused && !isGameOver) {
+                if (!isPaused && !isGameOver && !hasWon) {
                     for (size_t p = 0; p < players.size(); p++) {
                         if (players[p]->health > 0 && players[p]->lane == collectibles[i].lane) {
                             float dist = std::abs(players[p]->x - collectibles[i].x);
@@ -838,7 +840,7 @@ int main() {
         // Move and draw active enemies
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active == true) {
-                if (!isPaused && !isGameOver) {
+                if (!isPaused && !isGameOver && !hasWon) {
                     enemies[j].attackTimer = enemies[j].attackTimer + 1;
                     int blockingPlayer = -1;
                     float closestDistance = contactDistance;
@@ -917,7 +919,7 @@ int main() {
         // Move and update enemy spears thrown horizontally at players
         for (size_t k = 0; k < enemyProjectiles.size(); k++) {
             if (enemyProjectiles[k].active == true) {
-                if (!isPaused && !isGameOver) {
+                if (!isPaused && !isGameOver && !hasWon) {
                     enemyProjectiles[k].x = enemyProjectiles[k].x - enemyProjectiles[k].speed;
 
                     // Check collision with players on this lane
@@ -954,6 +956,11 @@ int main() {
             }
         }
 
+        if (!isPaused && !isGameOver && !hasWon && currentWave == 3 &&
+            enemiesSpawned == enemiesPerWave[2] && !hasActiveEnemies(enemies)) {
+            hasWon = true;
+        }
+
         drawText(vertices, "WAVE " + std::to_string(currentWave) + " OF 3",
                  0.36f, 0.76f, 0.0035f);
         if (enemiesSpawned == enemiesPerWave[currentWave - 1]) {
@@ -980,6 +987,13 @@ int main() {
             drawText(vertices, "GAME OVER", -0.22f, 0.15f, 0.005f, 1.0f, 0.25f, 0.25f);
             drawText(vertices, "HOUSE BREACHED", -0.30f, 0.00f, 0.0035f, 1.0f, 0.85f, 0.85f);
             drawText(vertices, "PRESS R TO RESTART", -0.38f, -0.12f, 0.0035f, 1.0f, 1.0f, 1.0f);
+        }
+
+        if (hasWon) {
+            addRectangle(vertices, -0.45f, 0.25f, 0.45f, -0.25f, 0.05f, 0.15f, 0.05f);
+            drawText(vertices, "YOU WIN", -0.17f, 0.15f, 0.005f, 0.4f, 1.0f, 0.4f);
+            drawText(vertices, "ALL THREE WAVES CLEARED", -0.40f, 0.00f, 0.0035f);
+            drawText(vertices, "PRESS R TO RESTART", -0.38f, -0.12f, 0.0035f);
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -1114,7 +1128,7 @@ int main() {
             }
         }
 
-        if (isPaused || isGameOver) {
+        if (isPaused || isGameOver || hasWon) {
             glUseProgram(shaderProgram);
             glBindVertexArray(VAO);
             glDrawArrays(GL_TRIANGLES, static_cast<GLint>(sceneVertexCount / 6),

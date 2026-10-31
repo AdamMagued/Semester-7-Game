@@ -854,8 +854,9 @@ int main() {
                 }
 
                 // Enemy Health bar above head (red background, green remaining)
-                float healthRatio = (float)enemies[j].health / 5.0f;
+                float healthRatio = (float)enemies[j].health / (float)enemies[j].maxHealth;
                 if (healthRatio < 0.0f) healthRatio = 0.0f;
+                if (healthRatio > 1.0f) healthRatio = 1.0f;
                 addRectangle(vertices, enemies[j].x - 0.04f, enemies[j].y + 0.09f,
                                        enemies[j].x + 0.04f, enemies[j].y + 0.08f,
                                        0.6f, 0.1f, 0.1f);

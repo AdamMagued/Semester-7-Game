@@ -10,6 +10,7 @@ enum EnemyType {
 class Enemy : public EntityClass {
 public:
     EnemyType type;
+    int maxHealth = 5;
     bool active = true;
 
     Enemy(int laneNumber, EnemyType enemyType = EASY) {
@@ -35,6 +36,7 @@ public:
             damage = 1;
         } else if (type == HARD) {
             health = 7;
+            maxHealth = 7;
             damage = 2;
             speed = 0.0018f;
         }

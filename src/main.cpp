@@ -380,9 +380,26 @@ int main() {
     glBindVertexArray(0);
 
     const size_t boardSize = vertices.size();
+    const double updateStep = 1.0 / 60.0;
+    double lastFrameTime = glfwGetTime();
+    double accumulatedTime = updateStep;
 
     // --- Render loop ---
     while (!glfwWindowShouldClose(window)) {
+        double currentFrameTime = glfwGetTime();
+        double elapsedTime = currentFrameTime - lastFrameTime;
+        lastFrameTime = currentFrameTime;
+        if (elapsedTime > 0.25) {
+            elapsedTime = 0.25;
+        }
+        accumulatedTime = accumulatedTime + elapsedTime;
+        if (accumulatedTime < updateStep) {
+            glfwWaitEventsTimeout(updateStep - accumulatedTime);
+            continue;
+        }
+        // Gameplay always advances in steps of 1/60 second.
+        accumulatedTime = accumulatedTime - updateStep;
+
         // Remove last frame's highlight before checking the mouse again.
         vertices.resize(boardSize);
 
@@ -994,6 +1011,12 @@ int main() {
             drawText(vertices, "YOU WIN", -0.17f, 0.15f, 0.005f, 0.4f, 1.0f, 0.4f);
             drawText(vertices, "ALL THREE WAVES CLEARED", -0.40f, 0.00f, 0.0035f);
             drawText(vertices, "PRESS R TO RESTART", -0.38f, -0.12f, 0.0035f);
+        }
+
+        // Catch up gameplay before drawing another frame.
+        if (accumulatedTime >= updateStep) {
+            glfwPollEvents();
+            continue;
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, VBO);

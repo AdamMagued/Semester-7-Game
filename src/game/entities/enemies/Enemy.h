@@ -11,6 +11,7 @@ class Enemy : public EntityClass {
 public:
     EnemyType type;
     int maxHealth = 5;
+    int attackTimer = 0;
     bool active = true;
 
     Enemy(int laneNumber, EnemyType enemyType = EASY) {

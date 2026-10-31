@@ -42,6 +42,7 @@ struct Projectile {
     int lane;
     float speed;
     bool active;
+    bool isLow = false;
 };
 
 struct Collectible {
@@ -327,7 +328,6 @@ int main() {
     bool isPaused = false;
     bool wasEscDown = false;
     bool isGameOver = false;
-    int enemyAttackTimer = 0;
     const float contactDistance = 0.11f;
 
     GLuint VAO, VBO;
@@ -482,7 +482,6 @@ int main() {
                 enemies.push_back(Enemy(2, HARD));
 
                 coins = 30;
-                enemyAttackTimer = 0;
                 selectedPlayerType = -1;
                 placementLane = -1;
                 selectedLanes[0] = false;
@@ -791,12 +790,10 @@ int main() {
         }
 
         // Move and draw active enemies
-        if (!isPaused && !isGameOver) {
-            enemyAttackTimer = enemyAttackTimer + 1;
-        }
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active == true) {
                 if (!isPaused && !isGameOver) {
+                    enemies[j].attackTimer = enemies[j].attackTimer + 1;
                     int blockingPlayer = -1;
                     float closestDistance = contactDistance;
 
@@ -810,16 +807,15 @@ int main() {
                             }
                         }
                     }
-                    if (blockingPlayer != -1 && enemyAttackTimer % 50 == 0) {
+                    if (enemies[j].type == HARD && blockingPlayer != -1 && enemies[j].attackTimer % 50 == 0) {
                         players[blockingPlayer]->isProtected = hasDefenseInFront(players[blockingPlayer], players);
                         players[blockingPlayer]->takeDamage(enemies[j].damage);
                     }
 
-                    int animCycle = enemyAttackTimer % 300;
+                    int animCycle = enemies[j].attackTimer % 300;
 
-                    // If in throwing phase (animCycle >= 150), PAUSE movement to aim and throw!
-                    if (animCycle < 150) {
-                        // Only advance forward during walk phase if not blocked by player
+                    // Ranged enemies stop to throw. Melee enemies keep advancing.
+                    if (enemies[j].type == HARD || animCycle < 150) {
                         if (blockingPlayer == -1) {
                             enemies[j].moveLeft();
                             if (enemies[j].x <= -0.80f) {
@@ -831,6 +827,10 @@ int main() {
                         Projectile spear;
                         spear.x = enemies[j].x - 0.05f;
                         spear.y = enemies[j].y;
+                        if (enemies[j].type == MEDIUM) {
+                            spear.isLow = true;
+                            spear.y = enemies[j].y - 0.05f;
+                        }
                         spear.lane = enemies[j].lane;
                         spear.speed = 0.0075f;
                         spear.active = true;
@@ -838,9 +838,8 @@ int main() {
                     }
                 }
 
-                // If in aim/wind-up phase (Frame 4, ticks 190 to 240), draw D=U*T equation & horizontal aim line!
-                int animCycle = enemyAttackTimer % 300;
-                if (animCycle >= 190 && animCycle < 240) {
+                int animCycle = enemies[j].attackTimer % 300;
+                if (enemies[j].type != HARD && animCycle >= 190 && animCycle < 240) {
                     // Equation from Frame 4
                     drawText(vertices, "D=U*T", enemies[j].x - 0.10f, enemies[j].y + 0.13f, 0.003f, 1.0f, 1.0f, 0.2f);
 
@@ -848,6 +847,9 @@ int main() {
                     for (float t = 0.0f; t <= 1.0f; t += 0.10f) {
                         float aimX = enemies[j].x - 0.05f - t * 0.25f;
                         float aimY = enemies[j].y;
+                        if (enemies[j].type == MEDIUM) {
+                            aimY = enemies[j].y - 0.05f;
+                        }
                         addRectangle(vertices, aimX - 0.002f, aimY + 0.002f, aimX + 0.002f, aimY - 0.002f,
                                                1.0f, 0.9f, 0.3f);
                     }
@@ -878,9 +880,13 @@ int main() {
                         if (players[p]->health > 0 && players[p]->lane == enemyProjectiles[k].lane) {
                             float dist = std::abs(enemyProjectiles[k].x - players[p]->x);
                             if (dist < 0.05f) {
-                                // Ducking avoids horizontal spear (spear flies right over ducked player!)
-                                if (players[p]->yOffset < -0.02f) {
-                                    continue;
+                                if (players[p]->playerType != playerClass::DEFENSE) {
+                                    if (enemyProjectiles[k].isLow && players[p]->yOffset > 0.05f) {
+                                        continue;
+                                    }
+                                    if (!enemyProjectiles[k].isLow && players[p]->yOffset < -0.02f) {
+                                        continue;
+                                    }
                                 }
                                 if (targetPlayer == -1 || players[p]->x > players[targetPlayer]->x) {
                                     targetPlayer = static_cast<int>(p);
@@ -972,9 +978,9 @@ int main() {
         // Draw animated enemy textured quads
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active) {
-                int animCycle = enemyAttackTimer % 300;
+                int animCycle = enemies[j].attackTimer % 300;
                 int frameIdx = 0;
-                if (animCycle < 150) {
+                if (enemies[j].type == HARD || animCycle < 150) {
                     // Walk loop with spear at hip: Frames 1, 2, 7 (indices 0, 1, 6)
                     // Slowed way down: 50 ticks per step!
                     int walkFrames[] = {0, 1, 6};

@@ -21,6 +21,13 @@ bool hasActiveEnemies(const std::vector<Enemy>& enemies) {
     return false;
 }
 
+float getDamageAmount(int health, int maxHealth) {
+    float damage = 1.0f - (float)health / (float)maxHealth;
+    if (damage < 0.0f) damage = 0.0f;
+    if (damage > 1.0f) damage = 1.0f;
+    return damage;
+}
+
 bool hasDefenseInFront(playerClass* player, const std::vector<playerClass*>& players) {
     if (player->health <= 0 || player->playerType == playerClass::DEFENSE) {
         return false;
@@ -188,7 +195,12 @@ const char* playerFragmentShaderSrc = R"(
 in vec2 uv;
 out vec4 FragColor;
 uniform sampler2D playerImage;
-void main() { FragColor = texture(playerImage, uv); }
+uniform float damageAmount;
+void main() {
+    vec4 color = texture(playerImage, uv);
+    color.rgb = mix(color.rgb, vec3(1.0, 0.0, 0.0), damageAmount);
+    FragColor = color;
+}
 )";
 
 static GLuint compileShader(GLenum type, const char* src) {
@@ -285,6 +297,7 @@ int main() {
     glLinkProgram(playerProgram);
     glDeleteShader(playerVS);
     glDeleteShader(playerFS);
+    GLint damageLocation = glGetUniformLocation(playerProgram, "damageAmount");
 
     int imageWidth, imageHeight, imageChannels;
     stbi_set_flip_vertically_on_load(true);
@@ -819,9 +832,10 @@ int main() {
                 r = 0.85f; g = 0.65f; b = 0.2f; // Gold for Defense
             }
 
-            if (players[i]->damageFlashTimer > 0) {
-                r = 1.0f; g = 0.8f; b = 0.8f; // Flash on hit
-            }
+            float damage = getDamageAmount(players[i]->health, players[i]->maxHealth);
+            r = r + (1.0f - r) * damage;
+            g = g * (1.0f - damage);
+            b = b * (1.0f - damage);
 
             addRectangle(vertices, players[i]->x - 0.04f, drawY + 0.06f,
                                    players[i]->x + 0.04f, drawY - 0.06f,
@@ -1122,6 +1136,7 @@ int main() {
             -1,1,0,1,  1,-1,1,0,  -1,-1,0,0
         };
         glUseProgram(playerProgram);
+        glUniform1f(damageLocation, 0.0f);
         glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
         glActiveTexture(GL_TEXTURE0);
         glBindVertexArray(playerVAO);
@@ -1149,6 +1164,7 @@ int main() {
                         left,top,0,1, right,bottom,0.25f,0, left,bottom,0,0
                     };
                     glUseProgram(playerProgram);
+                    glUniform1f(damageLocation, getDamageAmount(players[i]->health, players[i]->maxHealth));
                     glActiveTexture(GL_TEXTURE0);
                     glBindTexture(GL_TEXTURE_2D, playerTexture);
                     glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
@@ -1201,6 +1217,7 @@ int main() {
                         left, bottom, 1.0f, 0.0f
                     };
                     glUseProgram(playerProgram);
+                    glUniform1f(damageLocation, getDamageAmount(enemies[j].health, enemies[j].maxHealth));
                     glActiveTexture(GL_TEXTURE0);
                     glBindTexture(GL_TEXTURE_2D, enemyRangedTextures[frameIdx]);
                     glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
@@ -1214,6 +1231,8 @@ int main() {
 
         // Draw flying spears thrown by enemies
         if (spearTexture) {
+            glUseProgram(playerProgram);
+            glUniform1f(damageLocation, 0.0f);
             for (size_t k = 0; k < enemyProjectiles.size(); k++) {
                 if (enemyProjectiles[k].active) {
                     const float left = enemyProjectiles[k].x - 0.045f;

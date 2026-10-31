@@ -10,6 +10,19 @@
 #include "game/entities/players/ranged/ranged_player.h"
 #include "game/entities/enemies/Enemy.h"
 
+bool hasDefenseInFront(playerClass* player, const std::vector<playerClass*>& players) {
+    if (player->health <= 0 || player->playerType == playerClass::DEFENSE) {
+        return false;
+    }
+    for (size_t i = 0; i < players.size(); i++) {
+        if (players[i]->health > 0 && players[i]->playerType == playerClass::DEFENSE &&
+            players[i]->lane == player->lane && players[i]->x > player->x) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void addRectangle(std::vector<float>& vertices, float left, float top,
                   float right, float bottom, float red, float green, float blue) {
     const float rectangle[] = {
@@ -315,6 +328,7 @@ int main() {
     bool wasEscDown = false;
     bool isGameOver = false;
     int enemyAttackTimer = 0;
+    const float contactDistance = 0.11f;
 
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
@@ -578,6 +592,12 @@ int main() {
 
         // Move and draw each spawned player
         for (size_t i = 0; i < players.size(); i++) {
+            if (players[i]->health <= 0) {
+                delete players[i];
+                players.erase(players.begin() + i);
+                i = i - 1;
+                continue;
+            }
             bool isPlayerBlocked = false;
 
             // Update player combat and movement if not paused or game over
@@ -586,7 +606,7 @@ int main() {
                 for (size_t j = 0; j < enemies.size(); j++) {
                     if (enemies[j].active && enemies[j].lane == players[i]->lane) {
                         float dist = enemies[j].x - players[i]->x;
-                        if (dist >= 0.0f && dist <= 0.11f) {
+                        if (dist >= 0.0f && dist <= contactDistance) {
                             isPlayerBlocked = true;
                             break;
                         }
@@ -603,7 +623,7 @@ int main() {
                     for (size_t j = 0; j < enemies.size(); j++) {
                         if (enemies[j].active && enemies[j].lane == mp->lane) {
                             float dist = enemies[j].x - mp->x;
-                            if (dist > 0.0f && dist <= 0.11f) {
+                            if (dist >= 0.0f && dist <= contactDistance) {
                                 if (mp->attackCooldown <= 0) {
                                     mp->doAttack(); // Trigger strategy attack (punched)
                                     enemies[j].health = enemies[j].health - mp->damage;
@@ -620,11 +640,6 @@ int main() {
                                         collectibles.push_back(c);
                                     }
                                 }
-                                // Visual fist punch towards enemy
-                                float punchY = mp->y + mp->yOffset;
-                                addRectangle(vertices, mp->x + 0.04f, punchY + 0.02f,
-                                                       mp->x + 0.09f, punchY - 0.02f,
-                                                       1.0f, 0.4f, 0.4f);
                                 break;
                             }
                         }
@@ -638,12 +653,18 @@ int main() {
                 players[i]->updateJump();
             }
 
-            // Remove dead players
-            if (players[i]->health <= 0) {
-                delete players[i];
-                players.erase(players.begin() + i);
-                i = i - 1;
-                continue;
+            if (players[i]->playerType == playerClass::MELEE) {
+                for (size_t j = 0; j < enemies.size(); j++) {
+                    float dist = enemies[j].x - players[i]->x;
+                    if (enemies[j].active && enemies[j].lane == players[i]->lane &&
+                        dist >= 0.0f && dist <= contactDistance) {
+                        float punchY = players[i]->y + players[i]->yOffset;
+                        addRectangle(vertices, players[i]->x + 0.04f, punchY + 0.02f,
+                                               players[i]->x + 0.09f, punchY - 0.02f,
+                                               1.0f, 0.4f, 0.4f);
+                        break;
+                    }
+                }
             }
 
             float drawY = players[i]->y + players[i]->yOffset;
@@ -675,17 +696,7 @@ int main() {
             addRectangle(vertices, px - 0.04f, barY + 0.006f, px - 0.04f + 0.08f * hpRatio, barY - 0.006f, 0.2f, 0.85f, 0.2f);
 
             // Check if protected behind a defense player on the same lane
-            bool protectedByDefense = false;
-            if (players[i]->playerType != playerClass::DEFENSE) {
-                for (size_t d = 0; d < players.size(); d++) {
-                    if (players[d]->playerType == playerClass::DEFENSE && players[d]->lane == players[i]->lane) {
-                        if (players[i]->x < players[d]->x) {
-                            protectedByDefense = true;
-                            break;
-                        }
-                    }
-                }
-            }
+            bool protectedByDefense = hasDefenseInFront(players[i], players);
             players[i]->isProtected = protectedByDefense;
             if (protectedByDefense) {
                 players[i]->playerStatus = playerClass::invulnerable;
@@ -759,7 +770,7 @@ int main() {
                 // Check if any moving player walks over the dropped coin
                 if (!isPaused && !isGameOver) {
                     for (size_t p = 0; p < players.size(); p++) {
-                        if (players[p]->lane == collectibles[i].lane) {
+                        if (players[p]->health > 0 && players[p]->lane == collectibles[i].lane) {
                             float dist = std::abs(players[p]->x - collectibles[i].x);
                             if (dist < 0.06f) {
                                 coins = coins + collectibles[i].value;
@@ -786,21 +797,22 @@ int main() {
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active == true) {
                 if (!isPaused && !isGameOver) {
-                    bool enemyBlocked = false;
+                    int blockingPlayer = -1;
+                    float closestDistance = contactDistance;
 
                     // Check if blocked by any player or defense blocker on the same lane
                     for (size_t p = 0; p < players.size(); p++) {
-                        if (players[p]->lane == enemies[j].lane) {
+                        if (players[p]->health > 0 && players[p]->lane == enemies[j].lane) {
                             float dist = enemies[j].x - players[p]->x;
-                            if (dist >= 0.0f && dist <= 0.09f) {
-                                enemyBlocked = true;
-                                // Enemy attacks player / defense blocker every ~50 frames
-                                if (enemyAttackTimer % 50 == 0) {
-                                    players[p]->takeDamage(enemies[j].damage);
-                                }
-                                break;
+                            if (dist >= 0.0f && dist <= closestDistance) {
+                                blockingPlayer = static_cast<int>(p);
+                                closestDistance = dist;
                             }
                         }
+                    }
+                    if (blockingPlayer != -1 && enemyAttackTimer % 50 == 0) {
+                        players[blockingPlayer]->isProtected = hasDefenseInFront(players[blockingPlayer], players);
+                        players[blockingPlayer]->takeDamage(enemies[j].damage);
                     }
 
                     int animCycle = enemyAttackTimer % 300;
@@ -808,7 +820,7 @@ int main() {
                     // If in throwing phase (animCycle >= 150), PAUSE movement to aim and throw!
                     if (animCycle < 150) {
                         // Only advance forward during walk phase if not blocked by player
-                        if (enemyBlocked == false) {
+                        if (blockingPlayer == -1) {
                             enemies[j].moveLeft();
                             if (enemies[j].x <= -0.80f) {
                                 isGameOver = true;
@@ -860,19 +872,25 @@ int main() {
                     enemyProjectiles[k].x = enemyProjectiles[k].x - enemyProjectiles[k].speed;
 
                     // Check collision with players on this lane
+                    int targetPlayer = -1;
                     for (size_t p = 0; p < players.size(); p++) {
-                        if (players[p]->lane == enemyProjectiles[k].lane) {
+                        if (players[p]->health > 0 && players[p]->lane == enemyProjectiles[k].lane) {
                             float dist = std::abs(enemyProjectiles[k].x - players[p]->x);
                             if (dist < 0.05f) {
                                 // Ducking avoids horizontal spear (spear flies right over ducked player!)
                                 if (players[p]->yOffset < -0.02f) {
                                     continue;
                                 }
-                                enemyProjectiles[k].active = false;
-                                players[p]->takeDamage(1);
-                                break;
+                                if (targetPlayer == -1 || players[p]->x > players[targetPlayer]->x) {
+                                    targetPlayer = static_cast<int>(p);
+                                }
                             }
                         }
+                    }
+                    if (targetPlayer != -1) {
+                        enemyProjectiles[k].active = false;
+                        players[targetPlayer]->isProtected = hasDefenseInFront(players[targetPlayer], players);
+                        players[targetPlayer]->takeDamage(1);
                     }
 
                     // Remove if left screen

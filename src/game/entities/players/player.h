@@ -18,7 +18,7 @@ class playerClass: public EntityClass{
     };
 
     playerRange playerType;
-    playerState playerStatus;
+    playerState playerStatus = vulnerable;
 
     int cost;
     int maxHealth = 5;
@@ -26,8 +26,12 @@ class playerClass: public EntityClass{
     int damageFlashTimer = 0;
     fightStrat* strat = nullptr;
 
+    virtual ~playerClass() {
+        delete strat;
+    }
+
     void takeDamage(int amount) {
-        if (isProtected) {
+        if (health <= 0 || isProtected) {
             return; // Protected by defense player
         }
         health = health - amount;

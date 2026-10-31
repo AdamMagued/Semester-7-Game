@@ -353,7 +353,8 @@ int main() {
 
     int selectedPlayerType = -1;
     int placementLane = -1;
-    int coins = 30;              // Starting coins (30 per PDF Page 6)
+    const int startingCoins = 10;
+    int coins = startingCoins;
     bool wasMouseDown = false;   // To detect a fresh mouse click
     bool selectedLanes[3] = {false, false, false};
     bool wasPlayerKeyDown = false;
@@ -471,9 +472,25 @@ int main() {
             continue;
         }
 
+        int hoveredCard = -1;
+        if (!isPaused && !isGameOver && !hasWon && y >= 0.73f && y <= 0.92f) {
+            if (x >= -0.75f && x <= -0.55f && coins >= 10) {
+                hoveredCard = 0;
+            } else if (x >= -0.50f && x <= -0.30f && coins >= 20) {
+                hoveredCard = 1;
+            } else if (x >= -0.25f && x <= -0.05f && coins >= 30) {
+                hoveredCard = 2;
+            }
+        }
+        if ((selectedPlayerType == 0 && coins < 10) ||
+            (selectedPlayerType == 1 && coins < 20) ||
+            (selectedPlayerType == 2 && coins < 30)) {
+            selectedPlayerType = -1;
+        }
+
         // --- Draw UI Cards in top-left ---
         // Card 1: Melee (Cost 10) - Red Box
-        if (selectedPlayerType == 0) {
+        if ((selectedPlayerType == 0 || hoveredCard == 0) && coins >= 10) {
             addRectangle(vertices, -0.76f, 0.93f, -0.54f, 0.72f, 1.0f, 1.0f, 1.0f); // White selection border
         }
         if (coins >= 10) {
@@ -486,7 +503,7 @@ int main() {
         drawText(vertices, "MELEE", -0.68f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
 
         // Card 2: Ranged (Cost 20) - Blue Box
-        if (selectedPlayerType == 1) {
+        if ((selectedPlayerType == 1 || hoveredCard == 1) && coins >= 20) {
             addRectangle(vertices, -0.51f, 0.93f, -0.29f, 0.72f, 1.0f, 1.0f, 1.0f); // White selection border
         }
         if (coins >= 20) {
@@ -499,7 +516,7 @@ int main() {
         drawText(vertices, "RANGED", -0.44f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
 
         // Card 3: Defense (Cost 30) - Gold Box
-        if (selectedPlayerType == 2) {
+        if ((selectedPlayerType == 2 || hoveredCard == 2) && coins >= 30) {
             addRectangle(vertices, -0.26f, 0.93f, -0.04f, 0.72f, 1.0f, 1.0f, 1.0f); // White selection border
         }
         if (coins >= 30) {
@@ -574,7 +591,7 @@ int main() {
             enemiesSpawned = 0;
             spawnTimer = 0;
 
-            coins = 30;
+            coins = startingCoins;
             selectedPlayerType = -1;
             placementLane = -1;
             selectedLanes[0] = false;
@@ -648,14 +665,8 @@ int main() {
 
         // Lane clicks only select. Cards or number keys buy one player.
         if (!isPaused && !isGameOver && !hasWon && mouseClicked) {
-            if (y >= 0.73f && y <= 0.92f) {
-                if (x >= -0.75f && x <= -0.55f && coins >= 10) {
-                    playerToPlace = 0;
-                } else if (x >= -0.50f && x <= -0.30f && coins >= 20) {
-                    playerToPlace = 1;
-                } else if (x >= -0.25f && x <= -0.05f && coins >= 30) {
-                    playerToPlace = 2;
-                }
+            if (hoveredCard != -1) {
+                playerToPlace = hoveredCard;
             } else if (hoveredLane != -1) {
                 selectedLanes[hoveredLane] = !selectedLanes[hoveredLane];
                 if (selectedLanes[hoveredLane]) {

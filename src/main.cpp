@@ -305,10 +305,12 @@ int main() {
     enemies.push_back(Enemy(1, MEDIUM));
     enemies.push_back(Enemy(2, HARD));
 
-    int selectedPlayerType = 0;  // 0 = Melee (Key 1), 1 = Ranged (Key 2), 2 = Defense (Key 3)
+    int selectedPlayerType = -1;
+    int placementLane = -1;
     int coins = 30;              // Starting coins (30 per PDF Page 6)
     bool wasMouseDown = false;   // To detect a fresh mouse click
-    bool selectedLanes[3] = {true, false, false}; // Active selected lanes (can toggle multiple)
+    bool selectedLanes[3] = {false, false, false};
+    bool wasPlayerKeyDown = false;
     bool isPaused = false;
     bool wasEscDown = false;
     bool isGameOver = false;
@@ -467,8 +469,9 @@ int main() {
 
                 coins = 30;
                 enemyAttackTimer = 0;
-                selectedPlayerType = 0;
-                selectedLanes[0] = true;
+                selectedPlayerType = -1;
+                placementLane = -1;
+                selectedLanes[0] = false;
                 selectedLanes[1] = false;
                 selectedLanes[2] = false;
                 isPaused = false;
@@ -484,65 +487,73 @@ int main() {
             }
         }
 
-        // Select player type using keyboard 1, 2, 3
-        if (!isPaused && !isGameOver) {
-            if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
+        int playerToPlace = -1;
+        bool isPlayerKeyDown = false;
+        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
+            playerToPlace = 0;
+            isPlayerKeyDown = true;
+        } else if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
+            playerToPlace = 1;
+            isPlayerKeyDown = true;
+        } else if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
+            playerToPlace = 2;
+            isPlayerKeyDown = true;
+        }
+        if (wasPlayerKeyDown || isPaused || isGameOver) {
+            playerToPlace = -1;
+        }
+        wasPlayerKeyDown = isPlayerKeyDown;
+
+        // Lane clicks only select. Cards or number keys buy one player.
+        int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+        if (!isPaused && !isGameOver && mouseState == GLFW_PRESS && wasMouseDown == false) {
+            if (y >= 0.73f && y <= 0.92f) {
+                if (x >= -0.75f && x <= -0.55f && coins >= 10) {
+                    playerToPlace = 0;
+                } else if (x >= -0.50f && x <= -0.30f && coins >= 20) {
+                    playerToPlace = 1;
+                } else if (x >= -0.25f && x <= -0.05f && coins >= 30) {
+                    playerToPlace = 2;
+                }
+            } else if (hoveredLane != -1) {
+                selectedLanes[hoveredLane] = !selectedLanes[hoveredLane];
+                if (selectedLanes[hoveredLane]) {
+                    placementLane = hoveredLane;
+                } else if (placementLane == hoveredLane) {
+                    placementLane = -1;
+                    for (int lane = 0; lane < 3; lane++) {
+                        if (selectedLanes[lane]) {
+                            placementLane = lane;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        wasMouseDown = (mouseState == GLFW_PRESS);
+
+        if (placementLane != -1) {
+            if (playerToPlace == 0 && coins >= 10) {
+                melee_player* p = new melee_player();
+                p->setLane(placementLane);
+                players.push_back(p);
+                coins = coins - 10;
                 selectedPlayerType = 0;
-            } else if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
+            } else if (playerToPlace == 1 && coins >= 20) {
+                ranged_player* p = new ranged_player();
+                p->setLane(placementLane);
+                players.push_back(p);
+                coins = coins - 20;
                 selectedPlayerType = 1;
-            } else if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
+            } else if (playerToPlace == 2 && coins >= 30) {
+                defense_player* p = new defense_player();
+                p->setLane(placementLane);
+                players.push_back(p);
+                coins = coins - 30;
                 selectedPlayerType = 2;
             }
         }
-
-        // Click mouse: select card OR select lane & spawn player
-        int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
-        if (!isPaused && !isGameOver && mouseState == GLFW_PRESS && wasMouseDown == false) {
-            wasMouseDown = true; // Registered click
-
-            // Click on top-left UI cards to select
-            if (y >= 0.66f && y <= 0.93f) {
-                if (x >= -0.75f && x <= -0.55f && coins >= 10) {
-                    selectedPlayerType = 0;
-                } else if (x >= -0.50f && x <= -0.30f && coins >= 20) {
-                    selectedPlayerType = 1;
-                } else if (x >= -0.25f && x <= -0.05f && coins >= 30) {
-                    selectedPlayerType = 2;
-                }
-            }
-            // Click on a lane: toggle lane selection & spawn player
-            else if (hoveredLane != -1) {
-                selectedLanes[hoveredLane] = !selectedLanes[hoveredLane];
-
-                if (selectedPlayerType == 0 && coins >= 10) {
-                    selectedLanes[hoveredLane] = true;
-                    melee_player* p = new melee_player();
-                    p->setLane(hoveredLane);
-                    players.push_back(p);
-                    coins = coins - 10;
-                } else if (selectedPlayerType == 1 && coins >= 20) {
-                    selectedLanes[hoveredLane] = true;
-                    ranged_player* p = new ranged_player();
-                    p->setLane(hoveredLane);
-                    players.push_back(p);
-                    coins = coins - 20;
-                } else if (selectedPlayerType == 2 && coins >= 30) {
-                    selectedLanes[hoveredLane] = true;
-                    defense_player* p = new defense_player();
-                    p->setLane(hoveredLane);
-                    // Place Defense at clicked X position on the lane!
-                    float placeX = x;
-                    if (placeX < -0.75f) placeX = -0.75f;
-                    if (placeX > 0.70f) placeX = 0.70f;
-                    p->x = placeX;
-                    players.push_back(p);
-                    coins = coins - 30;
-                }
-            }
-        }
-        if (mouseState == GLFW_RELEASE) {
-            wasMouseDown = false; // Reset on release
-        }
+        drawText(vertices, "SELECT LANE THEN CARD OR 1 2 3", -0.72f, -0.90f, 0.005f);
 
         // Check keyboard for Jump (W / Up) and Duck (S / Down) across all selected lanes
         if (!isPaused && !isGameOver) {

@@ -850,7 +850,7 @@ int main() {
                 ranged_player* rp = static_cast<ranged_player*>(players[i]);
                 if (rp->shouldShoot()) {
                     Projectile proj;
-                    proj.x = rp->x + 0.05f;
+                    proj.x = rp->x;
                     proj.y = rp->y + rp->yOffset;
                     proj.lane = rp->lane;
                     proj.speed = 0.008f;
@@ -963,7 +963,7 @@ int main() {
                     } else if (animCycle == 240) {
                         // Frame 5 release: throw spear straight horizontally down the lane!
                         Projectile spear;
-                        spear.x = enemies[j].x - 0.05f;
+                        spear.x = enemies[j].x;
                         spear.y = enemies[j].y;
                         if (enemies[j].type == MEDIUM) {
                             spear.isLow = true;

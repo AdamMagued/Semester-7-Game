@@ -712,12 +712,16 @@ int main() {
                 for (size_t i = 0; i < players.size(); i++) {
                     if (selectedLanes[players[i]->lane]) {
                         players[i]->jump();
+                    } else {
+                        players[i]->stand();
                     }
                 }
             } else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
                 for (size_t i = 0; i < players.size(); i++) {
                     if (selectedLanes[players[i]->lane]) {
                         players[i]->duck();
+                    } else {
+                        players[i]->stand();
                     }
                 }
             } else {

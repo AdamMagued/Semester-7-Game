@@ -1,3 +1,7 @@
+#include "CutsceneData.h"
+#include <algorithm>
+#include <cctype>
+#include <iterator>
 #define GLAD_GL_IMPLEMENTATION
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
@@ -107,6 +111,13 @@ static const char* getGlyph(char c) {
         case 'W': return "#.#" "#.#" "#.#" "###" "#.#";
         case 'X': return "#.#" "#.#" ".#." "#.#" "#.#";
         case 'Y': return "#.#" "#.#" ".#." ".#." ".#.";
+        case 'J': return "..#" "..#" "..#" "#.#" "###";
+        case 'K': return "#.#" "#.#" "##." "#.#" "#.#";
+        case 'Q': return "###" "#.#" "#.#" "###" "..#";
+        case 'Z': return "###" "..#" ".#." "#.." "###";
+        case '?': return "###" "..#" ".##" "..." ".#.";
+        case ',': return "..." "..." "..." ".#." "#..";
+        case '\'': return ".#." ".#." "..." "..." "...";
         case '=': return "..." "###" "..." "###" "...";
         case '*': return ".#." "###" ".#." "..." "...";
         case '^': return ".#." "#.#" "..." "..." "...";
@@ -419,6 +430,13 @@ int main() {
     double lastFrameTime = glfwGetTime();
     double accumulatedTime = updateStep;
 
+    GLuint cutsceneTextures[std::size(cutsceneImages)] = {};
+    int cutsceneLine = -1;
+    double lineStarted = 0.0;
+    double sceneStarted = 0.0;
+    bool lineRevealed = false;
+    bool wasSpaceDown = false;
+
     // --- Render loop ---
     while (!glfwWindowShouldClose(window)) {
         double currentFrameTime = glfwGetTime();
@@ -456,6 +474,91 @@ int main() {
         bool enterPressed = enterDown && !wasEnterDown;
         wasEnterDown = enterDown;
 
+        bool spaceDown = glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS;
+        bool spacePressed = spaceDown && !wasSpaceDown;
+        wasSpaceDown = spaceDown;
+
+        if (cutsceneLine >= 0) {
+            std::string line = cutsceneLines[cutsceneLine].text;
+            double lineTime = currentFrameTime - lineStarted;
+            size_t visible = std::min(line.size(), static_cast<size_t>(lineTime * 38));
+            if (mouseClicked || enterPressed || spacePressed) {
+                if (!lineRevealed && visible < line.size()) {
+                    lineRevealed = true;
+                } else {
+                    ++cutsceneLine;
+                    if (cutsceneLine == std::size(cutsceneLines)) {
+                        cutsceneLine = -1;
+                        restartRequested = true;
+                        accumulatedTime = 0.0;
+                        continue;
+                    }
+                    if (cutsceneLines[cutsceneLine].image != cutsceneLines[cutsceneLine - 1].image) {
+                        sceneStarted = currentFrameTime;
+                    }
+                    lineStarted = currentFrameTime;
+                    lineTime = 0.0;
+                    lineRevealed = false;
+                    visible = 0;
+                    line = cutsceneLines[cutsceneLine].text;
+                }
+            }
+            if (lineRevealed) visible = line.size();
+
+            int image = cutsceneLines[cutsceneLine].image;
+            if (image == 1 && line == "Schedule it for deletion.") {
+                int flash = std::min(5, static_cast<int>(lineTime / 0.14));
+                image = 1 + flash % 2;
+            }
+            int width, height;
+            glfwGetFramebufferSize(window, &width, &height);
+            int viewWidth = std::min(width, height * 16 / 9);
+            int viewHeight = std::min(height, width * 9 / 16);
+            glViewport((width - viewWidth) / 2, (height - viewHeight) / 2, viewWidth, viewHeight);
+            glClearColor(0, 0, 0, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            const float quad[] = {
+                -1,1,0,1, 1,1,1,1, 1,-1,1,0,
+                -1,1,0,1, 1,-1,1,0, -1,-1,0,0
+            };
+            glUseProgram(playerProgram);
+            glUniform1f(damageLocation, 0.0f);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, cutsceneTextures[image]);
+            glBindVertexArray(playerVAO);
+            glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
+            float fade = std::min(1.0, (currentFrameTime - sceneStarted) / 0.25);
+            glEnable(GL_BLEND);
+            glBlendColor(0, 0, 0, fade);
+            glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+
+            std::vector<float> dialogue;
+            size_t wrap = line.size();
+            if (line.size() > 43) wrap = line.rfind(' ', 43);
+            for (char& c : line) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            drawText(dialogue, line.substr(0, std::min(wrap, visible)), 0, -0.60f, 0.015f);
+            if (visible > wrap + 1) {
+                drawText(dialogue, line.substr(wrap + 1, visible - wrap - 1), 0, -0.71f, 0.015f);
+            }
+            for (size_t i = 0; i < dialogue.size(); i += 6) {
+                dialogue[i] = -0.85f + dialogue[i] * 9.0f / 16.0f;
+            }
+            glUseProgram(shaderProgram);
+            glBindVertexArray(VAO);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBufferData(GL_ARRAY_BUFFER, dialogue.size() * sizeof(float), dialogue.data(), GL_DYNAMIC_DRAW);
+            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(dialogue.size() / 6));
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glfwSwapBuffers(window);
+            glViewport(0, 0, width, height);
+            glfwPollEvents();
+            accumulatedTime = 0.0;
+            continue;
+        }
+
         if ((isPaused || isGameOver || hasWon) && glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
             isMainMenu = true;
         }
@@ -467,7 +570,19 @@ int main() {
             drawText(menuVertices, "ENTER TO START", -0.25f, -0.35f, 0.005f);
             if (startClicked || enterPressed) {
                 isMainMenu = false;
-                restartRequested = true;
+                bool loaded = true;
+                for (size_t i = 0; i < std::size(cutsceneImages); ++i) {
+                    if (!cutsceneTextures[i]) cutsceneTextures[i] = loadTexture(cutsceneImages[i]);
+                    if (!cutsceneTextures[i]) loaded = false;
+                }
+                if (loaded) {
+                    cutsceneLine = 0;
+                    lineStarted = glfwGetTime();
+                    sceneStarted = lineStarted;
+                    lineRevealed = false;
+                } else {
+                    restartRequested = true;
+                }
             }
             if (exitClicked) {
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -1282,6 +1397,7 @@ int main() {
     glDeleteProgram(shaderProgram);
     glDeleteProgram(playerProgram);
     if (playerTexture) glDeleteTextures(1, &playerTexture);
+    glDeleteTextures(std::size(cutsceneTextures), cutsceneTextures);
     glDeleteTextures(4, backgroundTextures);
     glDeleteTextures(7, enemyRangedTextures);
     if (spearTexture) glDeleteTextures(1, &spearTexture);

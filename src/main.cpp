@@ -249,7 +249,9 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Lane Defense", nullptr, nullptr);
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "Lane Defense", monitor, nullptr);
     if (!window) {
         std::cerr << "Failed to create window\n";
         glfwTerminate();
@@ -299,25 +301,39 @@ int main() {
     glDeleteShader(playerFS);
     GLint damageLocation = glGetUniformLocation(playerProgram, "damageAmount");
 
-    int imageWidth, imageHeight, imageChannels;
     stbi_set_flip_vertically_on_load(true);
-    unsigned char* image = stbi_load("assets/textures/characters/player.png",
-                                     &imageWidth, &imageHeight, &imageChannels, 4);
-    GLuint playerTexture = 0;
-    if (image) {
-        glGenTextures(1, &playerTexture);
-        glBindTexture(GL_TEXTURE_2D, playerTexture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imageWidth, imageHeight, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, image);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        stbi_image_free(image);
-    } else {
-        std::cerr << "Couldn't load player.png: " << stbi_failure_reason() << '\n';
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    const char* playerAnimationFiles[3][4] = {
+        {"Gangsters_2/Idle.png", "Gangsters_2/Run.png", "Gangsters_2/Jump.png", "Gangsters_2/Attack_1.png"},
+        {"Gangsters_1/Idle.png", "Gangsters_1/Run.png", "Gangsters_1/Jump.png", "Gangsters_1/Attack_1.png"},
+        {"Gangsters_3/Idle.png", "Gangsters_3/Run.png", "Gangsters_3/Jump.png", "Gangsters_3/Attack.png"}
+    };
+    GLuint playerAnimationTextures[3][4] = {};
+    int playerAnimationFrames[3][4] = {};
+    for (int type = 0; type < 3; ++type) {
+        for (int animation = 0; animation < 4; ++animation) {
+            char path[160];
+            snprintf(path, sizeof(path), "assets/textures/characters/gangsters/%s",
+                     playerAnimationFiles[type][animation]);
+            int width, height, channels;
+            unsigned char* pixels = stbi_load(path, &width, &height, &channels, 4);
+            if (!pixels) {
+                std::cerr << "Couldn't load " << path << ": " << stbi_failure_reason() << '\n';
+                continue;
+            }
+            playerAnimationFrames[type][animation] = width / height;
+            glGenTextures(1, &playerAnimationTextures[type][animation]);
+            glBindTexture(GL_TEXTURE_2D, playerAnimationTextures[type][animation]);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
+                         GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+            stbi_image_free(pixels);
+        }
     }
 
     const char* backgroundFiles[] = {
@@ -330,12 +346,11 @@ int main() {
     for (int i = 0; i < 4; ++i)
         backgroundTextures[i] = loadTexture(backgroundFiles[i]);
 
-    GLuint enemyRangedTextures[7] = {0};
-    for (int i = 0; i < 7; ++i) {
-        char texPath[128];
-        snprintf(texPath, sizeof(texPath), "assets/textures/characters/enemy_ranged_%d.png", i + 1);
-        enemyRangedTextures[i] = loadTexture(texPath);
-    }
+    GLuint robotEnemyTextures[3] = {
+        loadTexture("assets/textures/characters/robot_enemy/Robot Idle.png"),
+        loadTexture("assets/textures/characters/robot_enemy/Robot run.png"),
+        loadTexture("assets/textures/characters/robot_enemy/robot shooting.png")
+    };
     GLuint spearTexture = loadTexture("assets/textures/characters/enemy_spear.png");
 
     // --- Playfield rectangles ---
@@ -358,11 +373,12 @@ int main() {
     std::vector<Collectible> collectibles;
     std::vector<Enemy> enemies;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
-    const int enemiesPerWave[3] = {3, 5, 10};
+    const int enemiesPerWave[3] = {10, 10, 10};
     const int framesBetweenSpawns = 180;
     int currentWave = 1;
     int enemiesSpawned = 0;
     int spawnTimer = 0;
+    float waveTransitionTimer = 2.0f;
 
     int selectedPlayerType = -1;
     int placementLane = -1;
@@ -418,6 +434,7 @@ int main() {
     const double updateStep = 1.0 / 60.0;
     double lastFrameTime = glfwGetTime();
     double accumulatedTime = updateStep;
+    double coinIncomeTimer = 0.0;
 
     // --- Render loop ---
     while (!glfwWindowShouldClose(window)) {
@@ -603,8 +620,10 @@ int main() {
             currentWave = 1;
             enemiesSpawned = 0;
             spawnTimer = 0;
+            waveTransitionTimer = 0.0f;
 
             coins = startingCoins;
+            coinIncomeTimer = 0.0;
             selectedPlayerType = -1;
             placementLane = -1;
             selectedLanes[0] = false;
@@ -628,29 +647,32 @@ int main() {
         }
 
         if (!isPaused && !isGameOver && !hasWon) {
+            coinIncomeTimer += updateStep;
+            if (coinIncomeTimer >= 1.0) {
+                coins += 5;
+                coinIncomeTimer -= 1.0;
+            }
+
             // Finish spawning and defeat every enemy before starting the next wave.
             if (enemiesSpawned == enemiesPerWave[currentWave - 1] &&
                 !hasActiveEnemies(enemies) && currentWave < 3) {
                 currentWave = currentWave + 1;
                 enemiesSpawned = 0;
                 spawnTimer = 0;
+                waveTransitionTimer = 2.0f;
             }
 
-            if (enemiesSpawned < enemiesPerWave[currentWave - 1]) {
+            if (waveTransitionTimer > 0.0f) {
+                waveTransitionTimer -= static_cast<float>(updateStep);
+            }
+
+            if (waveTransitionTimer <= 0.0f && enemiesSpawned < enemiesPerWave[currentWave - 1]) {
                 if (spawnTimer > 0) {
                     spawnTimer = spawnTimer - 1;
                 }
                 if (spawnTimer == 0) {
-                    EnemyType type = EASY;
-                    if (currentWave == 2 && enemiesSpawned % 2 == 1) {
-                        type = MEDIUM;
-                    } else if (currentWave == 3) {
-                        if (enemiesSpawned % 3 == 1) {
-                            type = MEDIUM;
-                        } else if (enemiesSpawned % 3 == 2) {
-                            type = HARD;
-                        }
-                    }
+                    EnemyType type = currentWave == 1 ? EASY :
+                                     currentWave == 2 ? MEDIUM : HARD;
                     int lane = std::rand() % 3;
                     enemies.push_back(Enemy(lane, type));
                     enemiesSpawned = enemiesSpawned + 1;
@@ -789,7 +811,7 @@ int main() {
                                         c.x = enemies[j].x;
                                         c.y = enemies[j].y;
                                         c.lane = enemies[j].lane;
-                                        c.value = 10;
+                                        c.value = 30;
                                         c.active = true;
                                         collectibles.push_back(c);
                                     }
@@ -822,25 +844,6 @@ int main() {
             }
 
             float drawY = players[i]->y + players[i]->yOffset;
-            float r = 0.9f;
-            float g = 0.2f;
-            float b = 0.2f; // Red for Melee
-
-            if (players[i]->playerType == playerClass::RANGED) {
-                r = 0.2f; g = 0.5f; b = 0.9f; // Blue for Ranged
-            } else if (players[i]->playerType == playerClass::DEFENSE) {
-                r = 0.85f; g = 0.65f; b = 0.2f; // Gold for Defense
-            }
-
-            float damage = getDamageAmount(players[i]->health, players[i]->maxHealth);
-            r = r + (1.0f - r) * damage;
-            g = g * (1.0f - damage);
-            b = b * (1.0f - damage);
-
-            addRectangle(vertices, players[i]->x - 0.04f, drawY + 0.06f,
-                                   players[i]->x + 0.04f, drawY - 0.06f,
-                                   r, g, b);
-
             // Health bar above player
             float px = players[i]->x;
             float barY = drawY + 0.080f;
@@ -897,7 +900,7 @@ int main() {
                                     c.x = enemies[j].x;
                                     c.y = enemies[j].y;
                                     c.lane = enemies[j].lane;
-                                    c.value = 10;
+                                    c.value = 30;
                                     c.active = true;
                                     collectibles.push_back(c);
                                 }
@@ -1069,6 +1072,15 @@ int main() {
             hasWon = true;
         }
 
+        if (waveTransitionTimer > 0.0f) {
+            const char* title = currentWave == 1 ? "WAVE I" :
+                                currentWave == 2 ? "WAVE II" : "WAVE III";
+            float waveR = currentWave == 1 ? 0.2f : currentWave == 2 ? 1.0f : 1.0f;
+            float waveG = currentWave == 1 ? 1.0f : currentWave == 2 ? 0.9f : 0.2f;
+            float waveB = currentWave == 3 ? 0.2f : 0.15f;
+            drawText(vertices, title, -0.13f, 0.06f, 0.008f, waveR, waveG, waveB);
+        }
+
         drawText(vertices, "WAVE " + std::to_string(currentWave) + " OF 3",
                  0.36f, 0.76f, 0.0035f);
         if (enemiesSpawned == enemiesPerWave[currentWave - 1]) {
@@ -1105,9 +1117,12 @@ int main() {
         }
 
         if (hasWon) {
-            addRectangle(vertices, -0.45f, 0.48f, 0.45f, -0.50f, 0.05f, 0.15f, 0.05f);
-            drawText(vertices, "YOU WIN", -0.17f, 0.36f, 0.005f, 0.4f, 1.0f, 0.4f);
-            drawText(vertices, "ALL THREE WAVES CLEARED", -0.40f, 0.20f, 0.0035f);
+            addRectangle(vertices, -1.0f, 1.0f, 1.0f, -1.0f, 0.015f, 0.01f, 0.015f);
+            addRectangle(vertices, -0.82f, 0.53f, 0.82f, 0.51f, 0.75f, 0.04f, 0.06f);
+            addRectangle(vertices, -0.82f, -0.55f, 0.82f, -0.57f, 0.75f, 0.04f, 0.06f);
+            drawText(vertices, "THE END", -0.20f, 0.30f, 0.009f, 0.9f, 0.08f, 0.1f);
+            drawText(vertices, "WAR NEVER CHANGES", -0.44f, 0.05f, 0.005f, 0.9f, 0.82f, 0.78f);
+            drawText(vertices, "ALL THREE WAVES CLEARED", -0.40f, -0.18f, 0.0035f, 0.75f, 0.72f, 0.7f);
         }
         if (isGameOver || hasWon) {
             if (drawMenuButton(vertices, "RESTART", 0.03f, x, y, mouseClicked)) {
@@ -1130,6 +1145,10 @@ int main() {
 
         glClearColor(0.15f, 0.35f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+        if (waveTransitionTimer > 0.0f) {
+            int shake = static_cast<int>(std::sin(glfwGetTime() * 70.0) * 9.0);
+            glViewport(shake, 0, framebufferWidth, framebufferHeight);
+        }
 
         const float backgroundQuad[] = {
             -1,1,0,1,  1,1,1,1,  1,-1,1,0,
@@ -1152,74 +1171,69 @@ int main() {
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(sceneVertexCount / 6));
 
-        if (playerTexture) {
-            for (size_t i = 0; i < players.size(); i++) {
-                if (players[i]->playerType == playerClass::MELEE) {
-                    const float left = players[i]->x - 0.04f;
-                    const float right = players[i]->x + 0.04f;
-                    const float top = players[i]->y + players[i]->yOffset + 0.06f;
-                    const float bottom = players[i]->y + players[i]->yOffset - 0.06f;
-                    const float quad[] = {
-                        left,top,0,1, right,top,0.25f,1, right,bottom,0.25f,0,
-                        left,top,0,1, right,bottom,0.25f,0, left,bottom,0,0
-                    };
-                    glUseProgram(playerProgram);
-                    glUniform1f(damageLocation, getDamageAmount(players[i]->health, players[i]->maxHealth));
-                    glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, playerTexture);
-                    glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
-                    glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
-                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
-                    glBindVertexArray(playerVAO);
-                    glDrawArrays(GL_TRIANGLES, 0, 6);
-                }
+        for (size_t i = 0; i < players.size(); i++) {
+            if (players[i]->health <= 0) continue;
+            int type = static_cast<int>(players[i]->playerType);
+            int animation = players[i]->playerType == playerClass::DEFENSE ? 0 :
+                            (players[i]->isJumping ? 2 : 1);
+            if (players[i]->playerType == playerClass::MELEE) {
+                melee_player* melee = static_cast<melee_player*>(players[i]);
+                if (melee->attackCooldown > 0) animation = 3;
             }
+            GLuint texture = playerAnimationTextures[type][animation];
+            int frameCount = playerAnimationFrames[type][animation];
+            if (!texture || frameCount == 0) continue;
+
+            int frame = static_cast<int>(glfwGetTime() * 8.0) % frameCount;
+            float u0 = static_cast<float>(frame) / frameCount;
+            float u1 = static_cast<float>(frame + 1) / frameCount;
+            const float left = players[i]->x - 0.055f;
+            const float right = players[i]->x + 0.055f;
+            const float top = players[i]->y + players[i]->yOffset + 0.085f;
+            const float bottom = players[i]->y + players[i]->yOffset - 0.085f;
+            const float quad[] = {
+                left,top,u0,1, right,top,u1,1, right,bottom,u1,0,
+                left,top,u0,1, right,bottom,u1,0, left,bottom,u0,0
+            };
+            glUseProgram(playerProgram);
+            glUniform1f(damageLocation, getDamageAmount(players[i]->health, players[i]->maxHealth));
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
+            glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
+            glBindVertexArray(playerVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
         }
 
         // Draw animated enemy textured quads
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active) {
                 int animCycle = enemies[j].attackTimer % 300;
-                int frameIdx = 0;
-                if (enemies[j].type == HARD || animCycle < 150) {
-                    // Walk loop with spear at hip: Frames 1, 2, 7 (indices 0, 1, 6)
-                    // Slowed way down: 50 ticks per step!
-                    int walkFrames[] = {0, 1, 6};
-                    frameIdx = walkFrames[(animCycle / 50) % 3];
-                } else if (animCycle < 190) {
-                    // Frame 3: Lift spear up over shoulder! (index 2, lasts 40 ticks)
-                    frameIdx = 2;
-                } else if (animCycle < 240) {
-                    // Frame 4: Pull spear back horizontally & aim arm forward! (index 3, lasts 50 ticks)
-                    frameIdx = 3;
-                } else if (animCycle < 270) {
-                    // Frame 5: Thrust arm forward, spear released! (index 4, lasts 30 ticks)
-                    frameIdx = 4;
-                } else {
-                    // Frame 6: Follow-through arm outstretched! (index 5, lasts 30 ticks)
-                    frameIdx = 5;
-                }
+                int animation = (enemies[j].type != HARD && animCycle >= 150) ? 2 : 1;
+                int frameCount[] = {2, 8, 5};
+                int frame = (enemies[j].attackTimer / 8) % frameCount[animation];
+                if (robotEnemyTextures[animation]) {
+                    const float left = enemies[j].x - 0.07f;
+                    const float right = enemies[j].x + 0.07f;
+                    const float top = enemies[j].y + 0.105f;
+                    const float bottom = enemies[j].y - 0.105f;
+                    float u0 = static_cast<float>(frame) / frameCount[animation];
+                    float u1 = static_cast<float>(frame + 1) / frameCount[animation];
 
-                if (enemyRangedTextures[frameIdx]) {
-                    const float left = enemies[j].x - 0.05f;
-                    const float right = enemies[j].x + 0.05f;
-                    const float top = enemies[j].y + 0.075f;
-                    const float bottom = enemies[j].y - 0.075f;
-
-                    // Flipped horizontally so robot faces left towards home base
                     const float quad[] = {
-                        left, top, 1.0f, 1.0f,
-                        right, top, 0.0f, 1.0f,
-                        right, bottom, 0.0f, 0.0f,
+                        left, top, u1, 1.0f,
+                        right, top, u0, 1.0f,
+                        right, bottom, u0, 0.0f,
 
-                        left, top, 1.0f, 1.0f,
-                        right, bottom, 0.0f, 0.0f,
-                        left, bottom, 1.0f, 0.0f
+                        left, top, u1, 1.0f,
+                        right, bottom, u0, 0.0f,
+                        left, bottom, u1, 0.0f
                     };
                     glUseProgram(playerProgram);
                     glUniform1f(damageLocation, getDamageAmount(enemies[j].health, enemies[j].maxHealth));
                     glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, enemyRangedTextures[frameIdx]);
+                    glBindTexture(GL_TEXTURE_2D, robotEnemyTextures[animation]);
                     glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
                     glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
                     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
@@ -1269,6 +1283,7 @@ int main() {
                          static_cast<GLsizei>((vertices.size() - sceneVertexCount) / 6));
         }
 
+        glViewport(0, 0, framebufferWidth, framebufferHeight);
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -1281,9 +1296,10 @@ int main() {
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
     glDeleteProgram(playerProgram);
-    if (playerTexture) glDeleteTextures(1, &playerTexture);
+    for (int type = 0; type < 3; ++type)
+        glDeleteTextures(4, playerAnimationTextures[type]);
     glDeleteTextures(4, backgroundTextures);
-    glDeleteTextures(7, enemyRangedTextures);
+    glDeleteTextures(3, robotEnemyTextures);
     if (spearTexture) glDeleteTextures(1, &spearTexture);
     glDeleteVertexArrays(1, &playerVAO);
     glDeleteBuffers(1, &playerVBO);

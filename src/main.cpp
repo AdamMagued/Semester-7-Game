@@ -207,8 +207,19 @@ in vec2 uv;
 out vec4 FragColor;
 uniform sampler2D playerImage;
 uniform float damageAmount;
+uniform int inactiveCount;
+uniform vec4 inactiveBubbles[2];
 void main() {
     vec4 color = texture(playerImage, uv);
+    vec2 point = vec2(uv.x * 420.0, (1.0 - uv.y) * 236.0);
+    for (int i = 0; i < inactiveCount; ++i) {
+        vec4 bubble = inactiveBubbles[i];
+        if (all(greaterThanEqual(point, bubble.xy)) && all(lessThan(point, bubble.zw))) {
+            // The bubble ink is brighter than the scene behind it.
+            float ink = max(color.r, color.b);
+            color.rgb *= 1.0 - smoothstep(0.33, 0.47, ink);
+        }
+    }
     color.rgb = mix(color.rgb, vec3(1.0, 0.0, 0.0), damageAmount);
     FragColor = color;
 }
@@ -312,6 +323,8 @@ int main() {
     glLinkProgram(playerProgram);
     glDeleteShader(playerVS);
     glDeleteShader(playerFS);
+    GLint inactiveBubblesLocation = glGetUniformLocation(playerProgram, "inactiveBubbles[0]");
+    GLint inactiveCountLocation = glGetUniformLocation(playerProgram, "inactiveCount");
     GLint damageLocation = glGetUniformLocation(playerProgram, "damageAmount");
 
     stbi_set_flip_vertically_on_load(true);
@@ -572,7 +585,40 @@ int main() {
             glEnable(GL_BLEND);
             glBlendColor(0, 0, 0, fade);
             glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
+            // Find the inactive bubble outlines in artwork coordinates.
+            GLfloat inactiveBubbles[8] = {};
+            int inactiveCount = 0;
+            auto hideBubble = [&](int left, int top, int right, int bottom) {
+                int offset = inactiveCount++ * 4;
+                inactiveBubbles[offset] = left;
+                inactiveBubbles[offset + 1] = top;
+                inactiveBubbles[offset + 2] = right;
+                inactiveBubbles[offset + 3] = bottom;
+            };
+            if (image == 0) {
+                if (page.left < 200) hideBubble(234, 84, 322, 144);
+                else hideBubble(78, 61, 178, 126);
+            } else if (image == 1) {
+                hideBubble(4, 10, 131, 83);
+            } else if (image == 2) {
+                hideBubble(277, 9, 413, 81);
+            } else if (image == 5) {
+                hideBubble(299, 19, 361, 59);
+            } else if (image == 6) {
+                if (page.left < 200) hideBubble(263, 46, 376, 116);
+                else hideBubble(65, 49, 160, 120);
+            } else if (image == 8) {
+                hideBubble(41, 53, 104, 99);
+                if (page.left < 300) hideBubble(323, 52, 384, 100);
+                else hideBubble(121, 17, 285, 116);
+            } else if (image == 9) {
+                if (page.left < 200) hideBubble(212, 9, 414, 127);
+                else hideBubble(5, 9, 201, 127);
+            }
+            glUniform4fv(inactiveBubblesLocation, inactiveCount, inactiveBubbles);
+            glUniform1i(inactiveCountLocation, inactiveCount);
             glDrawArrays(GL_TRIANGLES, 0, 6);
+            glUniform1i(inactiveCountLocation, 0);
 
             std::vector<float> dialogue;
             std::string speaker = std::string(page.speaker) + ":";
@@ -603,31 +649,6 @@ int main() {
             float textLeft = 2.0f * page.left / 420.0f - 1.0f;
             for (size_t i = 0; i < dialogue.size(); i += 6) {
                 dialogue[i] = textLeft + dialogue[i] * 236.0f / 420.0f;
-            }
-            // Cover unused bubbles in the supplied artwork, including their tails.
-            auto hideBubble = [&](int left, int top, int right, int bottom) {
-                addRectangle(dialogue, 2.0f * left / 420 - 1, 1 - 2.0f * top / 236,
-                             2.0f * right / 420 - 1, 1 - 2.0f * bottom / 236, 0, 0, 0);
-            };
-            if (image == 0) {
-                if (page.left < 200) hideBubble(234, 84, 322, 144);
-                else hideBubble(78, 61, 178, 126);
-            } else if (image == 1) {
-                hideBubble(4, 10, 131, 83);
-            } else if (image == 2) {
-                hideBubble(277, 9, 413, 81);
-            } else if (image == 5) {
-                hideBubble(299, 19, 361, 59);
-            } else if (image == 6) {
-                if (page.left < 200) hideBubble(263, 46, 376, 116);
-                else hideBubble(65, 49, 160, 120);
-            } else if (image == 8) {
-                hideBubble(41, 53, 104, 99);
-                if (page.left < 300) hideBubble(323, 52, 384, 100);
-                else hideBubble(121, 17, 285, 116);
-            } else if (image == 9) {
-                if (page.left < 200) hideBubble(212, 9, 414, 127);
-                else hideBubble(5, 9, 201, 127);
             }
             glUseProgram(shaderProgram);
             glBindVertexArray(VAO);

@@ -507,7 +507,7 @@ int main() {
 
             int image = cutsceneLines[cutsceneLine].image;
             if (image == 1 && line == "Schedule it for deletion.") {
-                int flash = std::min(5, static_cast<int>(lineTime / 0.14));
+                int flash = std::min(5, static_cast<int>(lineTime / 0.32));
                 image = 1 + flash % 2;
             }
             int width, height;
@@ -536,12 +536,15 @@ int main() {
             glDrawArrays(GL_TRIANGLES, 0, 6);
 
             std::vector<float> dialogue;
+            std::string speaker = cutsceneLines[cutsceneLine].speaker;
+            for (char& c : speaker) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            drawText(dialogue, speaker + ":", 0, -0.60f, 0.011f, 0.85f, 0.82f, 1.0f);
             size_t wrap = line.size();
-            if (line.size() > 43) wrap = line.rfind(' ', 43);
+            if (line.size() > 46) wrap = line.rfind(' ', 46);
             for (char& c : line) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-            drawText(dialogue, line.substr(0, std::min(wrap, visible)), 0, -0.60f, 0.015f);
+            drawText(dialogue, line.substr(0, std::min(wrap, visible)), 0, -0.68f, 0.011f);
             if (visible > wrap + 1) {
-                drawText(dialogue, line.substr(wrap + 1, visible - wrap - 1), 0, -0.71f, 0.015f);
+                drawText(dialogue, line.substr(wrap + 1, visible - wrap - 1), 0, -0.76f, 0.011f);
             }
             for (size_t i = 0; i < dialogue.size(); i += 6) {
                 dialogue[i] = -0.85f + dialogue[i] * 9.0f / 16.0f;

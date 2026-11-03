@@ -366,6 +366,12 @@ int main() {
         loadTexture("assets/textures/characters/robot_enemy/Robot run.png"),
         loadTexture("assets/textures/characters/robot_enemy/robot shooting.png")
     };
+    GLuint originalEnemyTextures[7] = {0};
+    for (int i = 0; i < 7; ++i) {
+        char path[128];
+        snprintf(path, sizeof(path), "assets/textures/characters/enemy_ranged_%d.png", i + 1);
+        originalEnemyTextures[i] = loadTexture(path);
+    }
     GLuint spearTexture = loadTexture("assets/textures/characters/enemy_spear.png");
 
     // --- Playfield rectangles ---
@@ -397,8 +403,9 @@ int main() {
 
     int selectedPlayerType = -1;
     int placementLane = -1;
-    const int startingCoins = 10;
+    const int startingCoins = 30;
     int coins = startingCoins;
+    int coinsCollected = 0;
     bool wasMouseDown = false;   // To detect a fresh mouse click
     bool selectedLanes[3] = {false, false, false};
     bool wasPlayerKeyDown = false;
@@ -449,7 +456,6 @@ int main() {
     const double updateStep = 1.0 / 60.0;
     double lastFrameTime = glfwGetTime();
     double accumulatedTime = updateStep;
-    double coinIncomeTimer = 0.0;
 
     GLuint cutsceneTextures[std::size(cutsceneImages)] = {};
     int cutsceneLine = -1;
@@ -654,18 +660,20 @@ int main() {
         }
 
         int hoveredCard = -1;
+        bool rangedUnlocked = coinsCollected >= 20;
+        bool defenseUnlocked = coinsCollected >= 30;
         if (!isPaused && !isGameOver && !hasWon && y >= 0.73f && y <= 0.92f) {
             if (x >= -0.75f && x <= -0.55f && coins >= 10) {
                 hoveredCard = 0;
-            } else if (x >= -0.50f && x <= -0.30f && coins >= 20) {
+            } else if (x >= -0.50f && x <= -0.30f && rangedUnlocked && coins >= 20) {
                 hoveredCard = 1;
-            } else if (x >= -0.25f && x <= -0.05f && coins >= 30) {
+            } else if (x >= -0.25f && x <= -0.05f && defenseUnlocked && coins >= 30) {
                 hoveredCard = 2;
             }
         }
         if ((selectedPlayerType == 0 && coins < 10) ||
-            (selectedPlayerType == 1 && coins < 20) ||
-            (selectedPlayerType == 2 && coins < 30)) {
+            (selectedPlayerType == 1 && (!rangedUnlocked || coins < 20)) ||
+            (selectedPlayerType == 2 && (!defenseUnlocked || coins < 30))) {
             selectedPlayerType = -1;
         }
 
@@ -684,28 +692,28 @@ int main() {
         drawText(vertices, "MELEE", -0.68f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
 
         // Card 2: Ranged (Cost 20) - Blue Box
-        if ((selectedPlayerType == 1 || hoveredCard == 1) && coins >= 20) {
+        if ((selectedPlayerType == 1 || hoveredCard == 1) && rangedUnlocked && coins >= 20) {
             addRectangle(vertices, -0.51f, 0.93f, -0.29f, 0.72f, 1.0f, 1.0f, 1.0f); // White selection border
         }
-        if (coins >= 20) {
+        if (rangedUnlocked && coins >= 20) {
             addRectangle(vertices, -0.50f, 0.92f, -0.30f, 0.73f, 0.25f, 0.45f, 0.85f); // Blue card
             drawText(vertices, "COST 20", -0.45f, 0.835f, 0.0035f, 1.0f, 1.0f, 1.0f);
         } else {
             addRectangle(vertices, -0.50f, 0.92f, -0.30f, 0.73f, 0.40f, 0.40f, 0.40f); // Locked card
-            drawText(vertices, "COST 20", -0.45f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
+            drawText(vertices, rangedUnlocked ? "COST 20" : "LOCKED", -0.45f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
         }
         drawText(vertices, "RANGED", -0.44f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
 
         // Card 3: Defense (Cost 30) - Gold Box
-        if ((selectedPlayerType == 2 || hoveredCard == 2) && coins >= 30) {
+        if ((selectedPlayerType == 2 || hoveredCard == 2) && defenseUnlocked && coins >= 30) {
             addRectangle(vertices, -0.26f, 0.93f, -0.04f, 0.72f, 1.0f, 1.0f, 1.0f); // White selection border
         }
-        if (coins >= 30) {
+        if (defenseUnlocked && coins >= 30) {
             addRectangle(vertices, -0.25f, 0.92f, -0.05f, 0.73f, 0.85f, 0.65f, 0.20f); // Gold card
             drawText(vertices, "COST 30", -0.20f, 0.835f, 0.0035f, 1.0f, 1.0f, 1.0f);
         } else {
             addRectangle(vertices, -0.25f, 0.92f, -0.05f, 0.73f, 0.40f, 0.40f, 0.40f); // Locked card
-            drawText(vertices, "COST 30", -0.20f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
+            drawText(vertices, defenseUnlocked ? "COST 30" : "LOCKED", -0.20f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
         }
         drawText(vertices, "DEFENSE", -0.20f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
 
@@ -774,7 +782,7 @@ int main() {
             waveTransitionTimer = 0.0f;
 
             coins = startingCoins;
-            coinIncomeTimer = 0.0;
+            coinsCollected = 0;
             selectedPlayerType = -1;
             placementLane = -1;
             selectedLanes[0] = false;
@@ -798,12 +806,6 @@ int main() {
         }
 
         if (!isPaused && !isGameOver && !hasWon) {
-            coinIncomeTimer += updateStep;
-            if (coinIncomeTimer >= 1.0) {
-                coins += 5;
-                coinIncomeTimer -= 1.0;
-            }
-
             // Finish spawning and defeat every enemy before starting the next wave.
             if (enemiesSpawned == enemiesPerWave[currentWave - 1] &&
                 !hasActiveEnemies(enemies) && currentWave < 3) {
@@ -823,7 +825,7 @@ int main() {
                 }
                 if (spawnTimer == 0) {
                     EnemyType type = currentWave == 1 ? EASY :
-                                     currentWave == 2 ? MEDIUM : HARD;
+                                     currentWave == 2 ? (enemiesSpawned % 2 == 0 ? EASY : MEDIUM) : HARD;
                     int lane = std::rand() % 3;
                     enemies.push_back(Enemy(lane, type));
                     enemiesSpawned = enemiesSpawned + 1;
@@ -876,13 +878,13 @@ int main() {
                 players.push_back(p);
                 coins = coins - 10;
                 selectedPlayerType = 0;
-            } else if (playerToPlace == 1 && coins >= 20) {
+            } else if (playerToPlace == 1 && rangedUnlocked && coins >= 20) {
                 ranged_player* p = new ranged_player();
                 p->setLane(placementLane);
                 players.push_back(p);
                 coins = coins - 20;
                 selectedPlayerType = 1;
-            } else if (playerToPlace == 2 && coins >= 30) {
+            } else if (playerToPlace == 2 && defenseUnlocked && coins >= 30) {
                 defense_player* p = new defense_player();
                 p->setLane(placementLane);
                 players.push_back(p);
@@ -962,7 +964,7 @@ int main() {
                                         c.x = enemies[j].x;
                                         c.y = enemies[j].y;
                                         c.lane = enemies[j].lane;
-                                        c.value = 30;
+                                        c.value = 10;
                                         c.active = true;
                                         collectibles.push_back(c);
                                     }
@@ -1051,7 +1053,7 @@ int main() {
                                     c.x = enemies[j].x;
                                     c.y = enemies[j].y;
                                     c.lane = enemies[j].lane;
-                                    c.value = 30;
+                                    c.value = 10;
                                     c.active = true;
                                     collectibles.push_back(c);
                                 }
@@ -1083,6 +1085,7 @@ int main() {
                             float dist = std::abs(players[p]->x - collectibles[i].x);
                             if (dist < 0.06f) {
                                 coins = coins + collectibles[i].value;
+                                coinsCollected += collectibles[i].value;
                                 collectibles[i].active = false;
                                 break;
                             }
@@ -1243,6 +1246,12 @@ int main() {
         }
 
         const size_t sceneVertexCount = vertices.size();
+        if (hasWon) {
+            addRectangle(vertices, -0.82f, 0.53f, 0.82f, 0.51f, 0.55f, 0.0f, 0.03f);
+            addRectangle(vertices, -0.82f, -0.55f, 0.82f, -0.57f, 0.55f, 0.0f, 0.03f);
+            drawText(vertices, "THE END", -0.20f, 0.30f, 0.009f, 0.65f, 0.0f, 0.04f);
+            drawText(vertices, "ALL THREE WAVES CLEARED", -0.40f, -0.18f, 0.0035f, 0.65f, 0.0f, 0.04f);
+        }
 
         // Draw Pause overlay
         if (isPaused) {
@@ -1268,11 +1277,6 @@ int main() {
         }
 
         if (hasWon) {
-            addRectangle(vertices, -0.82f, 0.53f, 0.82f, 0.51f, 0.75f, 0.04f, 0.06f);
-            addRectangle(vertices, -0.82f, -0.55f, 0.82f, -0.57f, 0.75f, 0.04f, 0.06f);
-            drawText(vertices, "THE END", -0.20f, 0.30f, 0.009f, 0.9f, 0.08f, 0.1f);
-            drawText(vertices, "WAR NEVER CHANGES", -0.44f, 0.05f, 0.005f, 0.9f, 0.82f, 0.78f);
-            drawText(vertices, "ALL THREE WAVES CLEARED", -0.40f, -0.18f, 0.0035f, 0.75f, 0.72f, 0.7f);
         }
         if (isGameOver || hasWon) {
             if (drawMenuButton(vertices, "RESTART", 0.03f, x, y, mouseClicked)) {
@@ -1309,6 +1313,15 @@ int main() {
             glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(cover), cover);
             glBindVertexArray(playerVAO);
             glDrawArrays(GL_TRIANGLES, 0, 6);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
+            glUseProgram(shaderProgram);
+            glBindVertexArray(VAO);
+            glDrawArrays(GL_TRIANGLES, static_cast<GLint>(sceneVertexCount / 6),
+                         static_cast<GLsizei>((vertices.size() - sceneVertexCount) / 6));
+            glfwSwapBuffers(window);
+            glfwPollEvents();
+            continue;
         }
         if (waveTransitionTimer > 0.0f) {
             int shake = static_cast<int>(std::sin(glfwGetTime() * 70.0) * 9.0);
@@ -1375,17 +1388,29 @@ int main() {
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active) {
                 int animCycle = enemies[j].attackTimer % 300;
+                bool useAdventurer = currentWave == 2 && enemies[j].type == MEDIUM;
                 int animation = (enemies[j].type != HARD && animCycle >= 150) ? 2 : 1;
                 int frameCount[] = {2, 8, 5};
                 int frame = (enemies[j].attackTimer / 8) % frameCount[animation];
-                if (robotEnemyTextures[animation]) {
+                GLuint enemyTexture = 0;
+                float u0, u1;
+                if (useAdventurer) {
+                    enemyTexture = robotEnemyTextures[animation];
+                    u0 = static_cast<float>(frame) / frameCount[animation];
+                    u1 = static_cast<float>(frame + 1) / frameCount[animation];
+                } else {
+                    int oldFrame = enemies[j].type == HARD || animCycle < 150
+                        ? (enemies[j].attackTimer / 50) % 3 == 2 ? 6 : (enemies[j].attackTimer / 50) % 3
+                        : animCycle < 190 ? 2 : animCycle < 240 ? 3 : animCycle < 270 ? 4 : 5;
+                    enemyTexture = originalEnemyTextures[oldFrame];
+                    u0 = 0.0f;
+                    u1 = 1.0f;
+                }
+                if (enemyTexture) {
                     const float left = enemies[j].x - 0.07f;
                     const float right = enemies[j].x + 0.07f;
                     const float top = enemies[j].y + 0.105f;
                     const float bottom = enemies[j].y - 0.105f;
-                    float u0 = static_cast<float>(frame) / frameCount[animation];
-                    float u1 = static_cast<float>(frame + 1) / frameCount[animation];
-
                     const float quad[] = {
                         left, top, u1, 1.0f,
                         right, top, u0, 1.0f,
@@ -1398,7 +1423,7 @@ int main() {
                     glUseProgram(playerProgram);
                     glUniform1f(damageLocation, getDamageAmount(enemies[j].health, enemies[j].maxHealth));
                     glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, robotEnemyTextures[animation]);
+                    glBindTexture(GL_TEXTURE_2D, enemyTexture);
                     glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
                     glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
                     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
@@ -1468,6 +1493,7 @@ int main() {
     glDeleteTextures(std::size(cutsceneTextures), cutsceneTextures);
     glDeleteTextures(4, backgroundTextures);
     glDeleteTextures(3, robotEnemyTextures);
+    glDeleteTextures(7, originalEnemyTextures);
     if (spearTexture) glDeleteTextures(1, &spearTexture);
     glDeleteVertexArrays(1, &playerVAO);
     glDeleteBuffers(1, &playerVBO);

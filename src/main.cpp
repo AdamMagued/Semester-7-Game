@@ -386,6 +386,9 @@ int main() {
         originalEnemyTextures[i] = loadTexture(path);
     }
     GLuint spearTexture = loadTexture("assets/textures/characters/enemy_spear.png");
+    // Hard enemy: walk sheet has 8 frames of 32 pixels, attack sheet has 7 frames of 48 pixels
+    GLuint mechWalkTexture = loadTexture("assets/textures/enemies/hard_melee/walk.png");
+    GLuint mechAttackTexture = loadTexture("assets/textures/enemies/hard_melee/attack.png");
 
     // --- Playfield rectangles ---
     std::vector<float> vertices;
@@ -1180,7 +1183,9 @@ int main() {
                             }
                         }
                     }
-                    if (enemies[j].type == HARD && blockingPlayer != -1 && enemies[j].attackTimer % 50 == 0) {
+                    enemies[j].isFighting = (blockingPlayer != -1);
+                    // The punch lands on frame 1 of the attack animation, when the arm is out
+                    if (enemies[j].type == HARD && blockingPlayer != -1 && enemies[j].attackTimer % 50 == 10) {
                         players[blockingPlayer]->isProtected = hasDefenseInFront(players[blockingPlayer], players);
                         players[blockingPlayer]->takeDamage(enemies[j].damage);
                     }
@@ -1449,12 +1454,33 @@ int main() {
             if (enemies[j].active) {
                 int animCycle = enemies[j].attackTimer % 300;
                 bool useAdventurer = currentWave == 2 && enemies[j].type == MEDIUM;
+                bool useMech = enemies[j].type == HARD && mechWalkTexture && mechAttackTexture;
                 int animation = (enemies[j].type != HARD && animCycle >= 150) ? 2 : 1;
                 int frameCount[] = {2, 8, 5};
                 int frame = (enemies[j].attackTimer / 8) % frameCount[animation];
                 GLuint enemyTexture = 0;
                 float u0, u1;
-                if (useAdventurer) {
+                float quadLeft = enemies[j].x - 0.07f;
+                float quadRight = enemies[j].x + 0.07f;
+                float quadTop = enemies[j].y + 0.105f;
+                float quadBottom = enemies[j].y - 0.105f;
+                if (useMech) {
+                    bool fighting = enemies[j].isFighting;
+                    enemyTexture = fighting ? mechAttackTexture : mechWalkTexture;
+                    int mechFrames = fighting ? 7 : 8;
+                    int mechFrame = fighting ? (enemies[j].attackTimer % 50) * 7 / 50
+                                             : (enemies[j].attackTimer / 6) % 8;
+                    u0 = static_cast<float>(mechFrame) / mechFrames;
+                    u1 = static_cast<float>(mechFrame + 1) / mechFrames;
+
+                    // Keep the sprite's pixels square: 32 pixels tall, 9/16 for the screen shape.
+                    // The attack frames are wider, so the body is lined up on its centre.
+                    float pixelWidth = 0.21f * 9.0f / 16.0f / 32.0f;
+                    float frameWidth = fighting ? 48.0f : 32.0f;
+                    float bodyCentre = fighting ? 10.5f : 13.5f;
+                    quadRight = enemies[j].x + bodyCentre * pixelWidth;
+                    quadLeft = quadRight - frameWidth * pixelWidth;
+                } else if (useAdventurer) {
                     enemyTexture = robotEnemyTextures[animation];
                     u0 = static_cast<float>(frame) / frameCount[animation];
                     u1 = static_cast<float>(frame + 1) / frameCount[animation];
@@ -1467,18 +1493,14 @@ int main() {
                     u1 = 1.0f;
                 }
                 if (enemyTexture) {
-                    const float left = enemies[j].x - 0.07f;
-                    const float right = enemies[j].x + 0.07f;
-                    const float top = enemies[j].y + 0.105f;
-                    const float bottom = enemies[j].y - 0.105f;
                     const float quad[] = {
-                        left, top, u1, 1.0f,
-                        right, top, u0, 1.0f,
-                        right, bottom, u0, 0.0f,
+                        quadLeft, quadTop, u1, 1.0f,
+                        quadRight, quadTop, u0, 1.0f,
+                        quadRight, quadBottom, u0, 0.0f,
 
-                        left, top, u1, 1.0f,
-                        right, bottom, u0, 0.0f,
-                        left, bottom, u1, 0.0f
+                        quadLeft, quadTop, u1, 1.0f,
+                        quadRight, quadBottom, u0, 0.0f,
+                        quadLeft, quadBottom, u1, 0.0f
                     };
                     glUseProgram(playerProgram);
                     glUniform1f(damageLocation, getDamageAmount(enemies[j].health, enemies[j].maxHealth));
@@ -1555,6 +1577,8 @@ int main() {
     glDeleteTextures(3, robotEnemyTextures);
     glDeleteTextures(7, originalEnemyTextures);
     if (spearTexture) glDeleteTextures(1, &spearTexture);
+    if (mechWalkTexture) glDeleteTextures(1, &mechWalkTexture);
+    if (mechAttackTexture) glDeleteTextures(1, &mechAttackTexture);
     glDeleteVertexArrays(1, &playerVAO);
     glDeleteBuffers(1, &playerVBO);
 

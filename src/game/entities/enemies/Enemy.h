@@ -13,6 +13,7 @@ public:
     int maxHealth = 5;
     int attackTimer = 0;
     bool active = true;
+    bool isFighting = false; // True while a player is blocking this enemy
 
     Enemy(int laneNumber, EnemyType enemyType = EASY) {
         lane = laneNumber;

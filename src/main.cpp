@@ -266,6 +266,8 @@ int main() {
     }
 
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+    bool isFullscreen = true;
+    bool wasF11Down = false;
     int framebufferWidth;
     int framebufferHeight;
     glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
@@ -304,6 +306,8 @@ int main() {
     stbi_set_flip_vertically_on_load(true);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    GLuint menuBackgroundTexture = loadTexture("assets/textures/ui/main_menu.jpg");
+    GLuint endingBackgroundTexture = loadTexture("assets/textures/ui/ending.jpg");
 
     const char* playerAnimationFiles[3][4] = {
         {"Gangsters_2/Idle.png", "Gangsters_2/Run.png", "Gangsters_2/Jump.png", "Gangsters_2/Attack_1.png"},
@@ -473,6 +477,21 @@ int main() {
         bool enterPressed = enterDown && !wasEnterDown;
         wasEnterDown = enterDown;
 
+        bool f11Down = glfwGetKey(window, GLFW_KEY_F11) == GLFW_PRESS;
+        if (f11Down && !wasF11Down) {
+            isFullscreen = !isFullscreen;
+            if (isFullscreen) {
+                GLFWmonitor* activeMonitor = glfwGetPrimaryMonitor();
+                const GLFWvidmode* activeMode = glfwGetVideoMode(activeMonitor);
+                glfwSetWindowMonitor(window, activeMonitor, 0, 0,
+                                     activeMode->width, activeMode->height,
+                                     activeMode->refreshRate);
+            } else {
+                glfwSetWindowMonitor(window, nullptr, 100, 80, 1280, 720, 0);
+            }
+        }
+        wasF11Down = f11Down;
+
         if ((isPaused || isGameOver || hasWon) && glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
             isMainMenu = true;
         }
@@ -494,6 +513,21 @@ int main() {
             glBufferData(GL_ARRAY_BUFFER, menuVertices.size() * sizeof(float), menuVertices.data(), GL_DYNAMIC_DRAW);
             glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
+            if (menuBackgroundTexture) {
+                const float menuQuad[] = {
+                    -1,1,0,1, 1,1,1,1, 1,-1,1,0,
+                    -1,1,0,1, 1,-1,1,0, -1,-1,0,0
+                };
+                glUseProgram(playerProgram);
+                glUniform1f(damageLocation, 0.0f);
+                glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, menuBackgroundTexture);
+                glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(menuQuad), menuQuad);
+                glBindVertexArray(playerVAO);
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+            }
             glUseProgram(shaderProgram);
             glBindVertexArray(VAO);
             glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(menuVertices.size() / 6));
@@ -1117,7 +1151,6 @@ int main() {
         }
 
         if (hasWon) {
-            addRectangle(vertices, -1.0f, 1.0f, 1.0f, -1.0f, 0.015f, 0.01f, 0.015f);
             addRectangle(vertices, -0.82f, 0.53f, 0.82f, 0.51f, 0.75f, 0.04f, 0.06f);
             addRectangle(vertices, -0.82f, -0.55f, 0.82f, -0.57f, 0.75f, 0.04f, 0.06f);
             drawText(vertices, "THE END", -0.20f, 0.30f, 0.009f, 0.9f, 0.08f, 0.1f);
@@ -1145,6 +1178,21 @@ int main() {
 
         glClearColor(0.15f, 0.35f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+        if (hasWon && endingBackgroundTexture) {
+            const float cover[] = {
+                -1,1,0,1, 1,1,1,1, 1,-1,1,0,
+                -1,1,0,1, 1,-1,1,0, -1,-1,0,0
+            };
+            glUseProgram(playerProgram);
+            glUniform1f(damageLocation, 0.0f);
+            glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, endingBackgroundTexture);
+            glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(cover), cover);
+            glBindVertexArray(playerVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
         if (waveTransitionTimer > 0.0f) {
             int shake = static_cast<int>(std::sin(glfwGetTime() * 70.0) * 9.0);
             glViewport(shake, 0, framebufferWidth, framebufferHeight);
@@ -1296,6 +1344,8 @@ int main() {
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
     glDeleteProgram(playerProgram);
+    if (menuBackgroundTexture) glDeleteTextures(1, &menuBackgroundTexture);
+    if (endingBackgroundTexture) glDeleteTextures(1, &endingBackgroundTexture);
     for (int type = 0; type < 3; ++type)
         glDeleteTextures(4, playerAnimationTextures[type]);
     glDeleteTextures(4, backgroundTextures);

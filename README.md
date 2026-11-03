@@ -35,5 +35,6 @@ With the Visual Studio generator on Windows:
 - Escape: pause or continue.
 - R: restart from a pause, win, or loss screen.
 - M: return to the main menu from a pause, win, or loss screen.
+- F11: toggle fullscreen and windowed mode.
 
 Players move and attack automatically. Defense players stay in place. Defeated enemies drop coins that players collect by touching them. A card is available only when you can afford its price.

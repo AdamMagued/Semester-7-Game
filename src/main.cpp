@@ -482,7 +482,8 @@ int main() {
             std::string line = cutsceneLines[cutsceneLine].text;
             double lineTime = currentFrameTime - lineStarted;
             size_t visible = std::min(line.size(), static_cast<size_t>(lineTime * 38));
-            if (mouseClicked || enterPressed || spacePressed) {
+            bool autoAdvance = lineTime >= line.size() / 38.0 + 2.5;
+            if (mouseClicked || enterPressed || spacePressed || autoAdvance) {
                 if (!lineRevealed && visible < line.size()) {
                     lineRevealed = true;
                 } else {

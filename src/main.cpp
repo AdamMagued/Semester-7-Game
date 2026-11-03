@@ -207,8 +207,19 @@ in vec2 uv;
 out vec4 FragColor;
 uniform sampler2D playerImage;
 uniform float damageAmount;
+uniform int inactiveCount;
+uniform vec4 inactiveBubbles[2];
 void main() {
     vec4 color = texture(playerImage, uv);
+    vec2 point = vec2(uv.x * 420.0, (1.0 - uv.y) * 236.0);
+    for (int i = 0; i < inactiveCount; ++i) {
+        vec4 bubble = inactiveBubbles[i];
+        if (all(greaterThanEqual(point, bubble.xy)) && all(lessThan(point, bubble.zw))) {
+            // The bubble ink is brighter than the scene behind it.
+            float ink = max(color.r, color.b);
+            color.rgb *= 1.0 - smoothstep(0.33, 0.47, ink);
+        }
+    }
     color.rgb = mix(color.rgb, vec3(1.0, 0.0, 0.0), damageAmount);
     FragColor = color;
 }
@@ -312,6 +323,8 @@ int main() {
     glLinkProgram(playerProgram);
     glDeleteShader(playerVS);
     glDeleteShader(playerFS);
+    GLint inactiveBubblesLocation = glGetUniformLocation(playerProgram, "inactiveBubbles[0]");
+    GLint inactiveCountLocation = glGetUniformLocation(playerProgram, "inactiveCount");
     GLint damageLocation = glGetUniformLocation(playerProgram, "damageAmount");
 
     stbi_set_flip_vertically_on_load(true);
@@ -547,10 +560,8 @@ int main() {
             }
             if (lineRevealed) visible = line.size();
 
-            int image = cutsceneLines[cutsceneLine].image;
-            if (image == 1 && line == "Schedule it for deletion.") {
-                image = 2;
-            }
+            const CutsceneLine& page = cutsceneLines[cutsceneLine];
+            int image = page.image;
             int width, height;
             glfwGetFramebufferSize(window, &width, &height);
             int viewWidth = std::min(width, height * 16 / 9);
@@ -574,21 +585,70 @@ int main() {
             glEnable(GL_BLEND);
             glBlendColor(0, 0, 0, fade);
             glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
+            // Find the inactive bubble outlines in artwork coordinates.
+            GLfloat inactiveBubbles[8] = {};
+            int inactiveCount = 0;
+            auto hideBubble = [&](int left, int top, int right, int bottom) {
+                int offset = inactiveCount++ * 4;
+                inactiveBubbles[offset] = left;
+                inactiveBubbles[offset + 1] = top;
+                inactiveBubbles[offset + 2] = right;
+                inactiveBubbles[offset + 3] = bottom;
+            };
+            if (image == 0) {
+                if (page.left < 200) hideBubble(234, 84, 322, 144);
+                else hideBubble(78, 61, 178, 126);
+            } else if (image == 1) {
+                hideBubble(4, 10, 131, 83);
+            } else if (image == 2) {
+                hideBubble(277, 9, 413, 81);
+            } else if (image == 5) {
+                hideBubble(299, 19, 361, 59);
+            } else if (image == 6) {
+                if (page.left < 200) hideBubble(263, 46, 376, 116);
+                else hideBubble(65, 49, 160, 120);
+            } else if (image == 8) {
+                hideBubble(41, 53, 104, 99);
+                if (page.left < 300) hideBubble(323, 52, 384, 100);
+                else hideBubble(121, 17, 285, 116);
+            } else if (image == 9) {
+                if (page.left < 200) hideBubble(212, 9, 414, 127);
+                else hideBubble(5, 9, 201, 127);
+            }
+            glUniform4fv(inactiveBubblesLocation, inactiveCount, inactiveBubbles);
+            glUniform1i(inactiveCountLocation, inactiveCount);
             glDrawArrays(GL_TRIANGLES, 0, 6);
+            glUniform1i(inactiveCountLocation, 0);
 
             std::vector<float> dialogue;
-            std::string speaker = cutsceneLines[cutsceneLine].speaker;
+            std::string speaker = std::string(page.speaker) + ":";
             for (char& c : speaker) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-            drawText(dialogue, speaker + ":", 0, -0.60f, 0.011f, 0.85f, 0.82f, 1.0f);
-            size_t wrap = line.size();
-            if (line.size() > 46) wrap = line.rfind(' ', 46);
             for (char& c : line) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-            drawText(dialogue, line.substr(0, std::min(wrap, visible)), 0, -0.68f, 0.011f);
-            if (visible > wrap + 1) {
-                drawText(dialogue, line.substr(wrap + 1, visible - wrap - 1), 0, -0.76f, 0.011f);
+
+            float boxWidth = page.right - page.left;
+            float boxHeight = page.bottom - page.top;
+            size_t wrap = line.size();
+            if (line.size() > 22) {
+                size_t split = line.rfind(' ', line.size() / 2);
+                if (split != std::string::npos) wrap = split;
             }
+            size_t longest = std::max(speaker.size(), wrap);
+            if (wrap < line.size()) longest = std::max(longest, line.size() - wrap - 1);
+            float pixel = std::min({1.35f, boxWidth / (4 * longest),
+                                    boxHeight / (wrap < line.size() ? 19 : 12)});
+            float textTop = 1.0f - 2.0f * page.top / 236.0f;
+            float pixelSize = 2.0f * pixel / 236.0f;
+            float ink = page.lightBox ? 0.08f : 1.0f;
+            drawText(dialogue, speaker, 0, textTop, pixelSize, ink, ink, ink);
+            drawText(dialogue, line.substr(0, std::min(wrap, visible)), 0,
+                     textTop - 7 * pixelSize, pixelSize, ink, ink, ink);
+            if (visible > wrap + 1) {
+                drawText(dialogue, line.substr(wrap + 1, visible - wrap - 1), 0,
+                         textTop - 14 * pixelSize, pixelSize, ink, ink, ink);
+            }
+            float textLeft = 2.0f * page.left / 420.0f - 1.0f;
             for (size_t i = 0; i < dialogue.size(); i += 6) {
-                dialogue[i] = -0.85f + dialogue[i] * 9.0f / 16.0f;
+                dialogue[i] = textLeft + dialogue[i] * 236.0f / 420.0f;
             }
             glUseProgram(shaderProgram);
             glBindVertexArray(VAO);

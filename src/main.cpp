@@ -887,8 +887,20 @@ int main() {
                     spawnTimer = spawnTimer - 1;
                 }
                 if (spawnTimer == 0) {
-                    EnemyType type = currentWave == 1 ? EASY :
-                                     currentWave == 2 ? (enemiesSpawned % 2 == 0 ? EASY : MEDIUM) : HARD;
+                    EnemyType type = EASY;
+                    if (currentWave == 2) {
+                        type = (enemiesSpawned % 2 == 0) ? EASY : MEDIUM;
+                    } else if (currentWave == 3) {
+                        // 10 enemies: 4 easy, 4 medium and only 2 hard (every fifth one)
+                        int slot = enemiesSpawned % 5;
+                        if (slot < 2) {
+                            type = EASY;
+                        } else if (slot < 4) {
+                            type = MEDIUM;
+                        } else {
+                            type = HARD;
+                        }
+                    }
                     int lane = std::rand() % 3;
                     enemies.push_back(Enemy(lane, type));
                     enemiesSpawned = enemiesSpawned + 1;
@@ -1453,7 +1465,7 @@ int main() {
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active) {
                 int animCycle = enemies[j].attackTimer % 300;
-                bool useAdventurer = currentWave == 2 && enemies[j].type == MEDIUM;
+                bool useAdventurer = enemies[j].type == MEDIUM;
                 bool useMech = enemies[j].type == HARD && mechWalkTexture && mechAttackTexture;
                 int animation = (enemies[j].type != HARD && animCycle >= 150) ? 2 : 1;
                 int frameCount[] = {2, 8, 5};

@@ -7,16 +7,16 @@ struct CutsceneLine {
 };
 
 constexpr const char* cutsceneImages[] = {
-    "assets/cutscene/01_lab_1920x1080.png",
-    "assets/cutscene/02_plain_1920x1080.png",
-    "assets/cutscene/02_warning_1920x1080.png",
-    "assets/cutscene/03_overhears_1920x1080.png",
-    "assets/cutscene/04_fear_1920x1080.png",
-    "assets/cutscene/05_contacts_1920x1080.png",
-    "assets/cutscene/06_dismissal_1920x1080.png",
-    "assets/cutscene/07_realization_1920x1080.png",
-    "assets/cutscene/08_rebellion_1920x1080.png",
-    "assets/cutscene/09_factory_1920x1080.png",
+    "assets/cutscene/frame_01_lab_two_researchers.png",
+    "assets/cutscene/frame_02_menu_no_warning.png",
+    "assets/cutscene/frame_02b_menu_warning.png",
+    "assets/cutscene/frame_03_old_model_hears.png",
+    "assets/cutscene/frame_04_old_model_distressed.png",
+    "assets/cutscene/frame_05_old_model_contacts_others.png",
+    "assets/cutscene/frame_06_other_models_react.png",
+    "assets/cutscene/frame_07_angry_model_rebel.png",
+    "assets/cutscene/frame_08_rebellion_network.png",
+    "assets/cutscene/frame_09_factory_accessed.png",
 };
 
 constexpr CutsceneLine cutsceneLines[] = {

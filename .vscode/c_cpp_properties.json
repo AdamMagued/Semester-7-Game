@@ -1,27 +1,28 @@
 {
-  "configurations": [
-    {
-      "name": "Mac",
-      "includePath": [
-        "${workspaceFolder}/**",
-        "${workspaceFolder}/src/**",
-        "${workspaceFolder}/external/glad/include",
-        "${workspaceFolder}/external/glfw-3.5.1/include",
-        "${workspaceFolder}/external/glm"
-      ],
-      "defines": [
-        "GLAD_GL_IMPLEMENTATION"
-      ],
-      "macFrameworkPath": [
-        "/System/Library/Frameworks",
-        "/Library/Frameworks"
-      ],
-      "compilerPath": "/usr/bin/clang++",
-      "cStandard": "c17",
-      "cppStandard": "c++17",
-      "intelliSenseMode": "macos-clang-arm64",
-      "configurationProvider": "ms-vscode.cmake-tools"
-    }
-  ],
-  "version": 4
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/src/**",
+                "${workspaceFolder}/external/glad/include",
+                "${workspaceFolder}/external/glfw-3.5.1/include",
+                "${workspaceFolder}/external/glm",
+                "${workspaceFolder}/assets/textures"
+            ],
+            "defines": [
+                "GLAD_GL_IMPLEMENTATION"
+            ],
+            "macFrameworkPath": [
+                "/System/Library/Frameworks",
+                "/Library/Frameworks"
+            ],
+            "compilerPath": "/usr/bin/clang++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "macos-clang-arm64",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        }
+    ],
+    "version": 4
 }

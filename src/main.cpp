@@ -507,8 +507,7 @@ int main() {
 
             int image = cutsceneLines[cutsceneLine].image;
             if (image == 1 && line == "Schedule it for deletion.") {
-                int flash = std::min(5, static_cast<int>(lineTime / 0.32));
-                image = 1 + flash % 2;
+                image = 2;
             }
             int width, height;
             glfwGetFramebufferSize(window, &width, &height);

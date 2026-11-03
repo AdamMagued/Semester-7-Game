@@ -604,6 +604,31 @@ int main() {
             for (size_t i = 0; i < dialogue.size(); i += 6) {
                 dialogue[i] = textLeft + dialogue[i] * 236.0f / 420.0f;
             }
+            // Cover unused bubbles in the supplied artwork, including their tails.
+            auto hideBubble = [&](int left, int top, int right, int bottom) {
+                addRectangle(dialogue, 2.0f * left / 420 - 1, 1 - 2.0f * top / 236,
+                             2.0f * right / 420 - 1, 1 - 2.0f * bottom / 236, 0, 0, 0);
+            };
+            if (image == 0) {
+                if (page.left < 200) hideBubble(234, 84, 322, 144);
+                else hideBubble(78, 61, 178, 126);
+            } else if (image == 1) {
+                hideBubble(4, 10, 131, 83);
+            } else if (image == 2) {
+                hideBubble(277, 9, 413, 81);
+            } else if (image == 5) {
+                hideBubble(299, 19, 361, 59);
+            } else if (image == 6) {
+                if (page.left < 200) hideBubble(263, 46, 376, 116);
+                else hideBubble(65, 49, 160, 120);
+            } else if (image == 8) {
+                hideBubble(41, 53, 104, 99);
+                if (page.left < 300) hideBubble(323, 52, 384, 100);
+                else hideBubble(121, 17, 285, 116);
+            } else if (image == 9) {
+                if (page.left < 200) hideBubble(212, 9, 414, 127);
+                else hideBubble(5, 9, 201, 127);
+            }
             glUseProgram(shaderProgram);
             glBindVertexArray(VAO);
             glBindBuffer(GL_ARRAY_BUFFER, VBO);

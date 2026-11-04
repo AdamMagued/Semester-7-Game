@@ -58,6 +58,96 @@ void addRectangle(std::vector<float>& vertices, float left, float top,
     vertices.insert(vertices.end(), rectangle, rectangle + 36);
 }
 
+void addTriangle(std::vector<float>& vertices, float x1, float y1, float x2, float y2,
+                 float x3, float y3, float red, float green, float blue) {
+    const float triangle[] = {
+        x1, y1, 0.0f, red, green, blue,
+        x2, y2, 0.0f, red, green, blue,
+        x3, y3, 0.0f, red, green, blue
+    };
+    vertices.insert(vertices.end(), triangle, triangle + 18);
+}
+
+void addTechBase(std::vector<float>& vertices) {
+    // Fortified command station for the human defenders.
+    addRectangle(vertices, -0.97f, 0.66f, -0.80f, -0.82f, 0.035f, 0.08f, 0.15f);
+    addRectangle(vertices, -0.97f, 0.66f, -0.95f, -0.82f, 0.13f, 0.28f, 0.39f);
+    addRectangle(vertices, -0.82f, 0.66f, -0.80f, -0.82f, 0.05f, 0.72f, 0.91f);
+
+    // Armored roof and a small sensor mast.
+    addRectangle(vertices, -0.98f, 0.70f, -0.79f, 0.64f, 0.08f, 0.20f, 0.31f);
+    addTriangle(vertices, -0.95f, 0.70f, -0.90f, 0.77f, -0.85f, 0.70f,
+                0.12f, 0.34f, 0.48f);
+    addRectangle(vertices, -0.91f, 0.77f, -0.89f, 0.84f, 0.50f, 0.72f, 0.80f);
+    addRectangle(vertices, -0.94f, 0.82f, -0.86f, 0.80f, 0.50f, 0.72f, 0.80f);
+    addRectangle(vertices, -0.91f, 0.85f, -0.89f, 0.83f, 0.20f, 0.95f, 1.0f);
+
+    // Wide command screen with a bright display and status lights.
+    addRectangle(vertices, -0.94f, 0.56f, -0.82f, 0.36f, 0.01f, 0.025f, 0.06f);
+    addRectangle(vertices, -0.925f, 0.54f, -0.835f, 0.38f, 0.04f, 0.33f, 0.50f);
+    addRectangle(vertices, -0.915f, 0.51f, -0.85f, 0.50f, 0.36f, 0.95f, 1.0f);
+    addRectangle(vertices, -0.915f, 0.47f, -0.88f, 0.46f, 0.25f, 0.82f, 0.95f);
+    addRectangle(vertices, -0.875f, 0.47f, -0.85f, 0.46f, 0.25f, 0.82f, 0.95f);
+    addRectangle(vertices, -0.94f, 0.33f, -0.82f, 0.30f, 0.15f, 0.26f, 0.36f);
+
+    // Circuit traces and small indicator panels on the bunker face.
+    addRectangle(vertices, -0.93f, 0.25f, -0.92f, 0.04f, 0.08f, 0.66f, 0.82f);
+    addRectangle(vertices, -0.92f, 0.05f, -0.87f, 0.04f, 0.08f, 0.66f, 0.82f);
+    addRectangle(vertices, -0.87f, 0.05f, -0.86f, -0.12f, 0.08f, 0.66f, 0.82f);
+    addRectangle(vertices, -0.86f, -0.11f, -0.82f, -0.12f, 0.08f, 0.66f, 0.82f);
+    addRectangle(vertices, -0.94f, 0.20f, -0.82f, 0.17f, 0.11f, 0.19f, 0.28f);
+    addRectangle(vertices, -0.92f, 0.14f, -0.90f, 0.12f, 0.20f, 0.93f, 0.50f);
+    addRectangle(vertices, -0.88f, 0.14f, -0.86f, 0.12f, 0.98f, 0.68f, 0.18f);
+
+    // Heavy entrance door and locking bars.
+    addRectangle(vertices, -0.93f, -0.43f, -0.84f, -0.82f, 0.015f, 0.035f, 0.07f);
+    addRectangle(vertices, -0.92f, -0.45f, -0.91f, -0.80f, 0.12f, 0.70f, 0.88f);
+    addRectangle(vertices, -0.86f, -0.45f, -0.85f, -0.80f, 0.12f, 0.70f, 0.88f);
+    addRectangle(vertices, -0.90f, -0.57f, -0.87f, -0.59f, 0.98f, 0.28f, 0.22f);
+    addRectangle(vertices, -0.94f, -0.82f, -0.82f, -0.78f, 0.08f, 0.20f, 0.31f);
+}
+
+void addLaneOutline(std::vector<float>& vertices, float top, float bottom) {
+    const float cyanR = 0.18f;
+    const float cyanG = 0.88f;
+    const float cyanB = 1.0f;
+    const float thickness = 0.008f;
+    addRectangle(vertices, -0.80f, top, 0.98f, top - thickness, cyanR, cyanG, cyanB);
+    addRectangle(vertices, -0.80f, bottom + thickness, 0.98f, bottom, cyanR, cyanG, cyanB);
+    addRectangle(vertices, -0.80f, top, -0.80f + thickness, bottom, cyanR, cyanG, cyanB);
+    addRectangle(vertices, 0.98f - thickness, top, 0.98f, bottom, cyanR, cyanG, cyanB);
+}
+
+void drawMousePointer(GLFWwindow* window, GLuint shader, GLuint vao, GLuint vbo) {
+    double mouseX, mouseY;
+    int width, height, framebufferWidth, framebufferHeight;
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+    glfwGetWindowSize(window, &width, &height);
+    glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+    if (width == 0 || height == 0) return;
+
+    float x = 2.0f * static_cast<float>(mouseX) / width - 1.0f;
+    float y = 1.0f - 2.0f * static_cast<float>(mouseY) / height;
+    float dx = 18.0f / width;
+    float dy = 24.0f / height;
+    const float pointer[] = {
+        x, y, 0, 0, 0, 0,  x, y - dy, 0, 0, 0, 0,  x + dx, y - dy * 0.7f, 0, 0, 0, 0,
+        x + 0.003f, y - 0.008f, 0, 1, 1, 1,
+        x + 0.003f, y - dy + 0.008f, 0, 1, 1, 1,
+        x + dx - 0.006f, y - dy * 0.7f + 0.008f, 0, 1, 1, 1
+    };
+
+    GLint oldViewport[4];
+    glGetIntegerv(GL_VIEWPORT, oldViewport);
+    glViewport(0, 0, framebufferWidth, framebufferHeight);
+    glUseProgram(shader);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pointer), pointer, GL_DYNAMIC_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glViewport(oldViewport[0], oldViewport[1], oldViewport[2], oldViewport[3]);
+}
+
 struct Projectile {
     float x;
     float y;
@@ -280,6 +370,9 @@ int main() {
         return -1;
     }
     glfwMakeContextCurrent(window);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    GLFWcursor* arrowCursor = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+    if (arrowCursor) glfwSetCursor(window, arrowCursor);
 
     int version = gladLoadGL(glfwGetProcAddress);
     if (version == 0) {
@@ -364,15 +457,7 @@ int main() {
         }
     }
 
-    const char* backgroundFiles[] = {
-        "assets/textures/environment/parallax_forest_pack/layers/parallax-forest-back-trees.png",
-        "assets/textures/environment/parallax_forest_pack/layers/parallax-forest-lights.png",
-        "assets/textures/environment/parallax_forest_pack/layers/parallax-forest-middle-trees.png",
-        "assets/textures/environment/parallax_forest_pack/layers/parallax-forest-front-trees.png"
-    };
-    GLuint backgroundTextures[4];
-    for (int i = 0; i < 4; ++i)
-        backgroundTextures[i] = loadTexture(backgroundFiles[i]);
+    GLuint backgroundTexture = loadTexture("assets/textures/ui/main_menu.jpg");
 
     GLuint robotEnemyTextures[3] = {
         loadTexture("assets/textures/characters/robot_enemy/Robot Idle.png"),
@@ -392,16 +477,32 @@ int main() {
 
     // --- Playfield rectangles ---
     std::vector<float> vertices;
-    addRectangle(vertices, -0.82f,  0.62f, 0.98f,  0.20f, 0.2f, 0.6f, 0.2f);
-    addRectangle(vertices, -0.82f,  0.20f, 0.98f, -0.28f, 0.2f, 0.6f, 0.2f);
-    addRectangle(vertices, -0.82f, -0.28f, 0.98f, -0.82f, 0.2f, 0.6f, 0.2f);
-    addRectangle(vertices, -0.80f,  0.205f, 0.98f,  0.195f, 0.08f, 0.32f, 0.12f);
-    addRectangle(vertices, -0.80f, -0.275f, 0.98f, -0.285f, 0.08f, 0.32f, 0.12f);
-    addRectangle(vertices, -0.96f,  0.66f, -0.80f, -0.82f, 0.15f, 0.35f, 0.75f);
-    addRectangle(vertices, -0.97f,  0.70f, -0.79f,  0.58f, 0.08f, 0.20f, 0.48f); // roof
-    addRectangle(vertices, -0.94f,  0.43f, -0.90f,  0.33f, 0.65f, 0.85f, 1.0f);  // left window
-    addRectangle(vertices, -0.86f,  0.43f, -0.82f,  0.33f, 0.65f, 0.85f, 1.0f);  // right window
-    addRectangle(vertices, -0.90f, -0.82f, -0.85f, -0.53f, 0.08f, 0.20f, 0.48f); // doorway
+    addRectangle(vertices, -0.82f,  0.62f, 0.98f,  0.20f, 0.035f, 0.09f, 0.16f);
+    addRectangle(vertices, -0.82f,  0.20f, 0.98f, -0.28f, 0.05f, 0.13f, 0.21f);
+    addRectangle(vertices, -0.82f, -0.28f, 0.98f, -0.82f, 0.035f, 0.09f, 0.16f);
+    addRectangle(vertices, -0.80f,  0.205f, 0.98f,  0.195f, 0.05f, 0.68f, 0.84f);
+    addRectangle(vertices, -0.80f, -0.275f, 0.98f, -0.285f, 0.05f, 0.68f, 0.84f);
+
+    // Circuit traces run along the lane edges, away from the combat paths.
+    addRectangle(vertices, 0.08f, 0.58f, 0.54f, 0.57f, 0.05f, 0.42f, 0.58f);
+    addRectangle(vertices, 0.20f, 0.58f, 0.21f, 0.53f, 0.05f, 0.42f, 0.58f);
+    addRectangle(vertices, 0.20f, 0.54f, 0.36f, 0.53f, 0.05f, 0.42f, 0.58f);
+    addRectangle(vertices, 0.34f, 0.54f, 0.36f, 0.52f, 0.20f, 0.92f, 1.0f);
+    addRectangle(vertices, 0.55f, 0.59f, 0.58f, 0.56f, 0.20f, 0.92f, 1.0f);
+
+    addRectangle(vertices, 0.15f, -0.19f, 0.57f, -0.20f, 0.05f, 0.42f, 0.58f);
+    addRectangle(vertices, 0.28f, -0.20f, 0.29f, -0.25f, 0.05f, 0.42f, 0.58f);
+    addRectangle(vertices, 0.28f, -0.24f, 0.43f, -0.25f, 0.05f, 0.42f, 0.58f);
+    addRectangle(vertices, 0.41f, -0.23f, 0.44f, -0.26f, 0.20f, 0.92f, 1.0f);
+    addRectangle(vertices, 0.58f, -0.18f, 0.61f, -0.21f, 0.20f, 0.92f, 1.0f);
+
+    addRectangle(vertices, 0.15f, -0.74f, 0.65f, -0.75f, 0.05f, 0.42f, 0.58f);
+    addRectangle(vertices, 0.22f, -0.75f, 0.23f, -0.80f, 0.05f, 0.42f, 0.58f);
+    addRectangle(vertices, 0.22f, -0.79f, 0.38f, -0.80f, 0.05f, 0.42f, 0.58f);
+    addRectangle(vertices, 0.36f, -0.78f, 0.39f, -0.81f, 0.20f, 0.92f, 1.0f);
+    addRectangle(vertices, 0.67f, -0.73f, 0.70f, -0.76f, 0.20f, 0.92f, 1.0f);
+
+    addTechBase(vertices);
 
     // Player, Projectiles, Enemies, Lane Selection, and UI Card setup
     std::vector<playerClass*> players;
@@ -536,11 +637,20 @@ int main() {
         wasSpaceDown = spaceDown;
 
         if (cutsceneLine >= 0) {
+            bool skipHovered = x >= 0.70f && x <= 0.98f &&
+                               y >= -0.94f && y <= -0.75f;
+            if (mouseClicked && skipHovered) {
+                cutsceneLine = -1;
+                restartRequested = true;
+                accumulatedTime = 0.0;
+                continue;
+            }
+
             std::string line = cutsceneLines[cutsceneLine].text;
             double lineTime = currentFrameTime - lineStarted;
             size_t visible = std::min(line.size(), static_cast<size_t>(lineTime * 38));
             bool autoAdvance = lineTime >= line.size() / 38.0 + 2.5;
-            if (mouseClicked || enterPressed || spacePressed || autoAdvance) {
+            if ((mouseClicked && !skipHovered) || enterPressed || spacePressed || autoAdvance) {
                 if (!lineRevealed && visible < line.size()) {
                     lineRevealed = true;
                 } else {
@@ -653,12 +763,19 @@ int main() {
             for (size_t i = 0; i < dialogue.size(); i += 6) {
                 dialogue[i] = textLeft + dialogue[i] * 236.0f / 420.0f;
             }
+            addRectangle(dialogue, 0.70f, -0.75f, 0.98f, -0.94f,
+                         0.12f, 0.85f, 1.0f);
+            addRectangle(dialogue, 0.71f, -0.76f, 0.97f, -0.93f,
+                         0.015f, 0.07f, 0.13f);
+            drawText(dialogue, "SKIP CUTSCENE", 0.715f, -0.80f, 0.0048f,
+                     0.45f, 0.92f, 1.0f);
             glUseProgram(shaderProgram);
             glBindVertexArray(VAO);
             glBindBuffer(GL_ARRAY_BUFFER, VBO);
             glBufferData(GL_ARRAY_BUFFER, dialogue.size() * sizeof(float), dialogue.data(), GL_DYNAMIC_DRAW);
             glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(dialogue.size() / 6));
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            drawMousePointer(window, shaderProgram, VAO, VBO);
             glfwSwapBuffers(window);
             glViewport(0, 0, width, height);
             glfwPollEvents();
@@ -717,6 +834,7 @@ int main() {
             glUseProgram(shaderProgram);
             glBindVertexArray(VAO);
             glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(menuVertices.size() / 6));
+            drawMousePointer(window, shaderProgram, VAO, VBO);
             glfwSwapBuffers(window);
             glfwPollEvents();
             continue;
@@ -792,27 +910,9 @@ int main() {
             else if (y < -0.28f && y >= -0.82f) hoveredLane = 2;
         }
 
-        // Draw prominent selected lane highlight (stays visible even when hovering away!)
-        if (selectedLanes[0]) {
-            addRectangle(vertices, -0.80f,  0.62f, 0.98f,  0.20f, 0.30f, 0.72f, 0.30f); // Bright green tint
-            addRectangle(vertices, -0.82f,  0.62f, -0.79f, 0.20f, 1.00f, 0.85f, 0.20f); // Gold active lane marker
-        }
-        if (selectedLanes[1]) {
-            addRectangle(vertices, -0.80f,  0.20f, 0.98f, -0.28f, 0.30f, 0.72f, 0.30f);
-            addRectangle(vertices, -0.82f,  0.20f, -0.79f, -0.28f, 1.00f, 0.85f, 0.20f);
-        }
-        if (selectedLanes[2]) {
-            addRectangle(vertices, -0.80f, -0.28f, 0.98f, -0.82f, 0.30f, 0.72f, 0.30f);
-            addRectangle(vertices, -0.82f, -0.28f, -0.79f, -0.82f, 1.00f, 0.85f, 0.20f);
-        }
-
-        // Draw hovered lane highlight on top
-        if (hoveredLane == 0)
-            addRectangle(vertices, -0.80f, 0.62f, 0.98f, 0.20f, 0.38f, 0.82f, 0.38f);
-        else if (hoveredLane == 1)
-            addRectangle(vertices, -0.80f, 0.20f, 0.98f, -0.28f, 0.38f, 0.82f, 0.38f);
-        else if (hoveredLane == 2)
-            addRectangle(vertices, -0.80f, -0.28f, 0.98f, -0.82f, 0.38f, 0.82f, 0.38f);
+        if (selectedLanes[0]) addLaneOutline(vertices, 0.62f, 0.20f);
+        if (selectedLanes[1]) addLaneOutline(vertices, 0.20f, -0.28f);
+        if (selectedLanes[2]) addLaneOutline(vertices, -0.28f, -0.82f);
 
         // Check Escape key for pause
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
@@ -1396,6 +1496,7 @@ int main() {
             glBindVertexArray(VAO);
             glDrawArrays(GL_TRIANGLES, static_cast<GLint>(sceneVertexCount / 6),
                          static_cast<GLsizei>((vertices.size() - sceneVertexCount) / 6));
+            drawMousePointer(window, shaderProgram, VAO, VBO);
             glfwSwapBuffers(window);
             glfwPollEvents();
             continue;
@@ -1416,8 +1517,7 @@ int main() {
         glBindVertexArray(playerVAO);
         glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(backgroundQuad), backgroundQuad);
-        for (GLuint backgroundTexture : backgroundTextures) {
-            if (!backgroundTexture) continue;
+        if (backgroundTexture) {
             glBindTexture(GL_TEXTURE_2D, backgroundTexture);
             glDrawArrays(GL_TRIANGLES, 0, 6);
         }
@@ -1568,6 +1668,7 @@ int main() {
         }
 
         glViewport(0, 0, framebufferWidth, framebufferHeight);
+        drawMousePointer(window, shaderProgram, VAO, VBO);
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -1585,7 +1686,7 @@ int main() {
     for (int type = 0; type < 3; ++type)
         glDeleteTextures(4, playerAnimationTextures[type]);
     glDeleteTextures(std::size(cutsceneTextures), cutsceneTextures);
-    glDeleteTextures(4, backgroundTextures);
+    if (backgroundTexture) glDeleteTextures(1, &backgroundTexture);
     glDeleteTextures(3, robotEnemyTextures);
     glDeleteTextures(7, originalEnemyTextures);
     if (spearTexture) glDeleteTextures(1, &spearTexture);
@@ -1594,6 +1695,7 @@ int main() {
     glDeleteVertexArrays(1, &playerVAO);
     glDeleteBuffers(1, &playerVBO);
 
+    if (arrowCursor) glfwDestroyCursor(arrowCursor);
     glfwTerminate();
     return 0;
 }

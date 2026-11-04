@@ -107,6 +107,55 @@ void addTechBase(std::vector<float>& vertices) {
     addRectangle(vertices, -0.94f, -0.82f, -0.82f, -0.78f, 0.08f, 0.20f, 0.31f);
 }
 
+void addFacilityDetails(std::vector<float>& vertices) {
+    // Server rack along the top edge of the upper lane.
+    addRectangle(vertices, 0.62f, 0.615f, 0.90f, 0.53f, 0.012f, 0.035f, 0.07f);
+    addRectangle(vertices, 0.635f, 0.60f, 0.885f, 0.54f, 0.10f, 0.19f, 0.28f);
+    addRectangle(vertices, 0.65f, 0.59f, 0.72f, 0.555f, 0.025f, 0.07f, 0.12f);
+    addRectangle(vertices, 0.735f, 0.59f, 0.80f, 0.555f, 0.025f, 0.07f, 0.12f);
+    addRectangle(vertices, 0.815f, 0.59f, 0.87f, 0.555f, 0.025f, 0.07f, 0.12f);
+    addRectangle(vertices, 0.66f, 0.582f, 0.675f, 0.575f, 0.15f, 0.95f, 1.0f);
+    addRectangle(vertices, 0.66f, 0.565f, 0.675f, 0.558f, 0.20f, 0.95f, 0.48f);
+    addRectangle(vertices, 0.745f, 0.582f, 0.76f, 0.575f, 1.0f, 0.63f, 0.16f);
+    addRectangle(vertices, 0.825f, 0.582f, 0.84f, 0.575f, 0.15f, 0.95f, 1.0f);
+
+    // Human repair bench along the lower edge of the upper lane.
+    addRectangle(vertices, 0.18f, 0.30f, 0.47f, 0.28f, 0.43f, 0.51f, 0.59f);
+    addRectangle(vertices, 0.205f, 0.28f, 0.23f, 0.21f, 0.20f, 0.29f, 0.36f);
+    addRectangle(vertices, 0.42f, 0.28f, 0.445f, 0.21f, 0.20f, 0.29f, 0.36f);
+    addRectangle(vertices, 0.25f, 0.30f, 0.35f, 0.255f, 0.012f, 0.035f, 0.07f);
+    addRectangle(vertices, 0.26f, 0.29f, 0.34f, 0.265f, 0.04f, 0.48f, 0.62f);
+    addRectangle(vertices, 0.37f, 0.295f, 0.40f, 0.285f, 0.91f, 0.66f, 0.18f);
+    addRectangle(vertices, 0.385f, 0.295f, 0.415f, 0.285f, 0.91f, 0.66f, 0.18f);
+
+    // Lockdown panel and warning light at the upper edge of the middle lane.
+    addRectangle(vertices, 0.70f, 0.195f, 0.91f, 0.075f, 0.015f, 0.04f, 0.075f);
+    addRectangle(vertices, 0.715f, 0.18f, 0.895f, 0.09f, 0.16f, 0.22f, 0.27f);
+    addTriangle(vertices, 0.735f, 0.105f, 0.765f, 0.16f, 0.795f, 0.105f,
+                1.0f, 0.63f, 0.12f);
+    addRectangle(vertices, 0.757f, 0.12f, 0.773f, 0.113f, 0.025f, 0.05f, 0.08f);
+    addRectangle(vertices, 0.757f, 0.10f, 0.773f, 0.093f, 0.025f, 0.05f, 0.08f);
+    addRectangle(vertices, 0.82f, 0.16f, 0.87f, 0.15f, 0.18f, 0.90f, 1.0f);
+    addRectangle(vertices, 0.82f, 0.135f, 0.87f, 0.125f, 1.0f, 0.25f, 0.15f);
+
+    // Backup generator at the lower edge of the middle lane.
+    addRectangle(vertices, -0.27f, -0.155f, 0.02f, -0.275f, 0.025f, 0.065f, 0.11f);
+    addRectangle(vertices, -0.25f, -0.17f, 0.00f, -0.26f, 0.18f, 0.27f, 0.31f);
+    addRectangle(vertices, -0.225f, -0.185f, -0.06f, -0.235f, 0.035f, 0.09f, 0.13f);
+    addRectangle(vertices, -0.045f, -0.185f, -0.015f, -0.205f, 0.15f, 0.92f, 1.0f);
+    addRectangle(vertices, -0.235f, -0.245f, -0.19f, -0.275f, 0.012f, 0.035f, 0.07f);
+    addRectangle(vertices, -0.045f, -0.245f, 0.00f, -0.275f, 0.012f, 0.035f, 0.07f);
+
+    // Battery crates at the bottom edge of the lower lane.
+    addRectangle(vertices, 0.60f, -0.675f, 0.74f, -0.81f, 0.025f, 0.07f, 0.12f);
+    addRectangle(vertices, 0.615f, -0.69f, 0.725f, -0.795f, 0.12f, 0.22f, 0.30f);
+    addRectangle(vertices, 0.635f, -0.70f, 0.705f, -0.735f, 0.02f, 0.055f, 0.09f);
+    addRectangle(vertices, 0.635f, -0.75f, 0.705f, -0.785f, 0.02f, 0.055f, 0.09f);
+    addRectangle(vertices, 0.655f, -0.706f, 0.685f, -0.729f, 0.14f, 0.90f, 1.0f);
+    addRectangle(vertices, 0.655f, -0.756f, 0.685f, -0.779f, 0.14f, 0.90f, 1.0f);
+    addRectangle(vertices, 0.615f, -0.682f, 0.725f, -0.69f, 0.85f, 0.60f, 0.15f);
+}
+
 void addLaneOutline(std::vector<float>& vertices, float top, float bottom) {
     const float cyanR = 0.18f;
     const float cyanG = 0.88f;
@@ -503,6 +552,7 @@ int main() {
     addRectangle(vertices, 0.67f, -0.73f, 0.70f, -0.76f, 0.20f, 0.92f, 1.0f);
 
     addTechBase(vertices);
+    addFacilityDetails(vertices);
 
     // Player, Projectiles, Enemies, Lane Selection, and UI Card setup
     std::vector<playerClass*> players;

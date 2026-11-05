@@ -27,9 +27,6 @@ class EntityClass{
 
     void move() {
         x = x + (speed * 0.002f);
-        if (x > 0.90f) {
-            x = 0.90f; // stop at the right end of the lane
-        }
     }
 
 

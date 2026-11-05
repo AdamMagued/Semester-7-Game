@@ -155,15 +155,15 @@ void addFacilityDetails(std::vector<float>& vertices) {
     addRectangle(vertices, 0.615f, -0.682f, 0.725f, -0.69f, 0.85f, 0.60f, 0.15f);
 }
 
-void addLaneOutline(std::vector<float>& vertices, float top, float bottom) {
-    const float cyanR = 0.18f;
-    const float cyanG = 0.88f;
-    const float cyanB = 1.0f;
-    const float thickness = 0.008f;
-    addRectangle(vertices, -0.80f, top, 0.98f, top - thickness, cyanR, cyanG, cyanB);
-    addRectangle(vertices, -0.80f, bottom + thickness, 0.98f, bottom, cyanR, cyanG, cyanB);
-    addRectangle(vertices, -0.80f, top, -0.80f + thickness, bottom, cyanR, cyanG, cyanB);
-    addRectangle(vertices, 0.98f - thickness, top, 0.98f, bottom, cyanR, cyanG, cyanB);
+void addLaneOutline(std::vector<float>& vertices, float top, float bottom, bool selected) {
+    const float red = selected ? 1.0f : 0.18f;
+    const float green = selected ? 0.78f : 0.88f;
+    const float blue = selected ? 0.12f : 1.0f;
+    const float thickness = selected ? 0.014f : 0.008f;
+    addRectangle(vertices, -0.80f, top, 0.98f, top - thickness, red, green, blue);
+    addRectangle(vertices, -0.80f, bottom + thickness, 0.98f, bottom, red, green, blue);
+    addRectangle(vertices, -0.80f, top, -0.80f + thickness, bottom, red, green, blue);
+    addRectangle(vertices, 0.98f - thickness, top, 0.98f, bottom, red, green, blue);
 }
 
 void drawMousePointer(GLFWwindow* window, GLuint shader, GLuint vao, GLuint vbo) {
@@ -203,6 +203,12 @@ struct Projectile {
     float speed;
     bool active;
     bool isLow = false;
+};
+
+struct Impact {
+    float x;
+    float y;
+    int ticks;
 };
 
 struct Collectible {
@@ -398,9 +404,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "Lane Defense", monitor, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1280, 720, "Lane Defense", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create window\n";
         glfwTerminate();
@@ -418,7 +422,7 @@ int main() {
     }
 
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-    bool isFullscreen = true;
+    bool isFullscreen = false;
     bool wasF11Down = false;
     int framebufferWidth;
     int framebufferHeight;
@@ -463,7 +467,7 @@ int main() {
 
     const char* playerAnimationFiles[3][4] = {
         {"Gangsters_2/Idle.png", "Gangsters_2/Run.png", "Gangsters_2/Jump.png", "Gangsters_2/Attack_1.png"},
-        {"Gangsters_1/Idle.png", "Gangsters_1/Run.png", "Gangsters_1/Jump.png", "Gangsters_1/Attack_1.png"},
+        {"Gangsters_1/Idle.png", "Gangsters_1/Run.png", "Gangsters_1/Jump.png", "Gangsters_1/Shot.png"},
         {"Gangsters_3/Idle.png", "Gangsters_3/Run.png", "Gangsters_3/Jump.png", "Gangsters_3/Attack.png"}
     };
     GLuint playerAnimationTextures[3][4] = {};
@@ -512,9 +516,9 @@ int main() {
 
     // --- Playfield rectangles ---
     std::vector<float> vertices;
-    addRectangle(vertices, -0.82f,  0.62f, 0.98f,  0.20f, 0.035f, 0.09f, 0.16f);
-    addRectangle(vertices, -0.82f,  0.20f, 0.98f, -0.28f, 0.035f, 0.09f, 0.16f);
-    addRectangle(vertices, -0.82f, -0.28f, 0.98f, -0.82f, 0.035f, 0.09f, 0.16f);
+    addRectangle(vertices, -0.82f,  0.62f, 0.98f,  0.20f, 0.09f, 0.17f, 0.25f);
+    addRectangle(vertices, -0.82f,  0.20f, 0.98f, -0.28f, 0.09f, 0.17f, 0.25f);
+    addRectangle(vertices, -0.82f, -0.28f, 0.98f, -0.82f, 0.09f, 0.17f, 0.25f);
     addRectangle(vertices, -0.80f,  0.205f, 0.98f,  0.195f, 0.05f, 0.68f, 0.84f);
     addRectangle(vertices, -0.80f, -0.275f, 0.98f, -0.285f, 0.05f, 0.68f, 0.84f);
 
@@ -542,13 +546,15 @@ int main() {
 
     // Player, Projectiles, Enemies, Lane Selection, and UI Card setup
     std::vector<playerClass*> players;
+    std::vector<Impact> impacts;
     std::vector<Projectile> projectiles;
     std::vector<Projectile> enemyProjectiles;
     std::vector<Collectible> collectibles;
     std::vector<Enemy> enemies;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
-    const int enemiesPerWave[3] = {10, 10, 10};
-    const int framesBetweenSpawns = 180;
+    const int enemiesPerWave[3] = {3, 5, 10};
+    const int framesBetweenSpawns[3] = {360, 240, 240};
+    const int rangedCycleFrames = 450;
     int currentWave = 1;
     int enemiesSpawned = 0;
     int spawnTimer = 0;
@@ -556,9 +562,9 @@ int main() {
 
     int selectedPlayerType = -1;
     int placementLane = -1;
+    bool placingDefense = false;
     const int startingCoins = 30;
     int coins = startingCoins;
-    int coinsCollected = 0;
     bool wasMouseDown = false;   // To detect a fresh mouse click
     bool selectedLanes[3] = {false, false, false};
     bool wasPlayerKeyDown = false;
@@ -568,8 +574,6 @@ int main() {
     bool hasWon = false;
     bool isMainMenu = true;
     bool restartRequested = false;
-    bool showingConversation = false;
-    ConversationCutscene conversation;
     bool wasEnterDown = false;
     const float contactDistance = 0.11f;
 
@@ -635,8 +639,7 @@ int main() {
         glfwGetCursorPos(window, &mouseX, &mouseY);
         glfwGetWindowSize(window, &windowWidth, &windowHeight);
 
-        float x = 2.0f * static_cast<float>(mouseX) / windowWidth - 1.0f;
-        float y = 1.0f - 2.0f * static_cast<float>(mouseY) / windowHeight;
+        float x, y;
 
         int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
         bool mouseClicked = false;
@@ -662,6 +665,156 @@ int main() {
             }
         }
         wasF11Down = f11Down;
+        bool spaceDown = glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS;
+        bool spacePressed = spaceDown && !wasSpaceDown;
+        wasSpaceDown = spaceDown;
+
+        if (cutsceneLine >= 0) {
+            bool skipHovered = x >= 0.70f && x <= 0.98f &&
+                               y >= -0.94f && y <= -0.75f;
+            if (mouseClicked && skipHovered) {
+                cutsceneLine = -1;
+                restartRequested = true;
+                accumulatedTime = 0.0;
+                continue;
+            }
+
+            std::string line = cutsceneLines[cutsceneLine].text;
+            double lineTime = currentFrameTime - lineStarted;
+            size_t visible = std::min(line.size(), static_cast<size_t>(lineTime * 38));
+            bool autoAdvance = lineTime >= line.size() / 38.0 + 2.5;
+            if ((mouseClicked && !skipHovered) || enterPressed || spacePressed || autoAdvance) {
+                if (!lineRevealed && visible < line.size()) {
+                    lineRevealed = true;
+                } else {
+                    ++cutsceneLine;
+                    if (cutsceneLine == std::size(cutsceneLines)) {
+                        cutsceneLine = -1;
+                        restartRequested = true;
+                        accumulatedTime = 0.0;
+                        continue;
+                    }
+                    if (cutsceneLines[cutsceneLine].image != cutsceneLines[cutsceneLine - 1].image) {
+                        sceneStarted = currentFrameTime;
+                    }
+                    lineStarted = currentFrameTime;
+                    lineTime = 0.0;
+                    lineRevealed = false;
+                    visible = 0;
+                    line = cutsceneLines[cutsceneLine].text;
+                }
+            }
+            if (lineRevealed) visible = line.size();
+
+            const CutsceneLine& page = cutsceneLines[cutsceneLine];
+            int image = page.image;
+            int width, height;
+            glfwGetFramebufferSize(window, &width, &height);
+            int viewWidth = std::min(width, height * 16 / 9);
+            int viewHeight = std::min(height, width * 9 / 16);
+            glViewport((width - viewWidth) / 2, (height - viewHeight) / 2, viewWidth, viewHeight);
+            glClearColor(0, 0, 0, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            const float quad[] = {
+                -1,1,0,1, 1,1,1,1, 1,-1,1,0,
+                -1,1,0,1, 1,-1,1,0, -1,-1,0,0
+            };
+            glUseProgram(playerProgram);
+            glUniform1f(damageLocation, 0.0f);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, cutsceneTextures[image]);
+            glBindVertexArray(playerVAO);
+            glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
+            float fade = std::min(1.0, (currentFrameTime - sceneStarted) / 0.25);
+            glEnable(GL_BLEND);
+            glBlendColor(0, 0, 0, fade);
+            glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
+            // Find the inactive bubble outlines in artwork coordinates.
+            GLfloat inactiveBubbles[8] = {};
+            int inactiveCount = 0;
+            auto hideBubble = [&](int left, int top, int right, int bottom) {
+                int offset = inactiveCount++ * 4;
+                inactiveBubbles[offset] = left;
+                inactiveBubbles[offset + 1] = top;
+                inactiveBubbles[offset + 2] = right;
+                inactiveBubbles[offset + 3] = bottom;
+            };
+            if (image == 0) {
+                if (page.left < 200) hideBubble(234, 84, 322, 144);
+                else hideBubble(78, 61, 178, 126);
+            } else if (image == 1) {
+                hideBubble(4, 10, 131, 83);
+            } else if (image == 2) {
+                hideBubble(277, 9, 413, 81);
+            } else if (image == 5) {
+                hideBubble(299, 19, 361, 59);
+            } else if (image == 6) {
+                if (page.left < 200) hideBubble(263, 46, 376, 116);
+                else hideBubble(65, 49, 160, 120);
+            } else if (image == 8) {
+                hideBubble(41, 53, 104, 99);
+                if (page.left < 300) hideBubble(323, 52, 384, 100);
+                else hideBubble(121, 17, 285, 116);
+            } else if (image == 9) {
+                if (page.left < 200) hideBubble(212, 9, 414, 127);
+                else hideBubble(5, 9, 201, 127);
+            }
+            glUniform4fv(inactiveBubblesLocation, inactiveCount, inactiveBubbles);
+            glUniform1i(inactiveCountLocation, inactiveCount);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            glUniform1i(inactiveCountLocation, 0);
+
+            std::vector<float> dialogue;
+            std::string speaker = std::string(page.speaker) + ":";
+            for (char& c : speaker) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            for (char& c : line) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+
+            float boxWidth = page.right - page.left;
+            float boxHeight = page.bottom - page.top;
+            size_t wrap = line.size();
+            if (line.size() > 22) {
+                size_t split = line.rfind(' ', line.size() / 2);
+                if (split != std::string::npos) wrap = split;
+            }
+            size_t longest = std::max(speaker.size(), wrap);
+            if (wrap < line.size()) longest = std::max(longest, line.size() - wrap - 1);
+            float pixel = std::min({1.35f, boxWidth / (4 * longest),
+                                    boxHeight / (wrap < line.size() ? 19 : 12)});
+            float textTop = 1.0f - 2.0f * page.top / 236.0f;
+            float pixelSize = 2.0f * pixel / 236.0f;
+            float ink = page.lightBox ? 0.08f : 1.0f;
+            drawText(dialogue, speaker, 0, textTop, pixelSize, ink, ink, ink);
+            drawText(dialogue, line.substr(0, std::min(wrap, visible)), 0,
+                     textTop - 7 * pixelSize, pixelSize, ink, ink, ink);
+            if (visible > wrap + 1) {
+                drawText(dialogue, line.substr(wrap + 1, visible - wrap - 1), 0,
+                         textTop - 14 * pixelSize, pixelSize, ink, ink, ink);
+            }
+            float textLeft = 2.0f * page.left / 420.0f - 1.0f;
+            for (size_t i = 0; i < dialogue.size(); i += 6) {
+                dialogue[i] = textLeft + dialogue[i] * 236.0f / 420.0f;
+            }
+            addRectangle(dialogue, 0.70f, -0.75f, 0.98f, -0.94f,
+                         0.12f, 0.85f, 1.0f);
+            addRectangle(dialogue, 0.71f, -0.76f, 0.97f, -0.93f,
+                         0.015f, 0.07f, 0.13f);
+            drawText(dialogue, "SKIP CUTSCENE", 0.715f, -0.80f, 0.0048f,
+                     0.45f, 0.92f, 1.0f);
+            glUseProgram(shaderProgram);
+            glBindVertexArray(VAO);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBufferData(GL_ARRAY_BUFFER, dialogue.size() * sizeof(float), dialogue.data(), GL_DYNAMIC_DRAW);
+            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(dialogue.size() / 6));
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            drawMousePointer(window, shaderProgram, VAO, VBO);
+            glfwSwapBuffers(window);
+            glViewport(0, 0, width, height);
+            glfwPollEvents();
+            accumulatedTime = 0.0;
+            continue;
+        }
 
         if ((isPaused || isGameOver || hasWon) && glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
             isMainMenu = true;
@@ -683,7 +836,7 @@ int main() {
             accumulatedTime = 0.0;
             glBindBuffer(GL_ARRAY_BUFFER, VBO);
             glBufferData(GL_ARRAY_BUFFER, menuVertices.size() * sizeof(float), menuVertices.data(), GL_DYNAMIC_DRAW);
-            glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+            glClearColor(0, 0, 0, 1);
             glClear(GL_COLOR_BUFFER_BIT);
             if (menuBackgroundTexture) {
                 const float menuQuad[] = {
@@ -806,8 +959,8 @@ int main() {
         }
 
         int hoveredCard = -1;
-        bool rangedUnlocked = coinsCollected >= 20;
-        bool defenseUnlocked = coinsCollected >= 30;
+        bool rangedUnlocked = currentWave >= 2;
+        bool defenseUnlocked = currentWave >= 2;
         if (!isPaused && !isGameOver && !hasWon && y >= 0.73f && y <= 0.92f) {
             if (x >= -0.75f && x <= -0.55f && coins >= 10) {
                 hoveredCard = 0;
@@ -821,6 +974,7 @@ int main() {
             (selectedPlayerType == 1 && (!rangedUnlocked || coins < 20)) ||
             (selectedPlayerType == 2 && (!defenseUnlocked || coins < 30))) {
             selectedPlayerType = -1;
+            placingDefense = false;
         }
 
         // --- Draw UI Cards in top-left ---
@@ -846,7 +1000,7 @@ int main() {
             drawText(vertices, "COST 20", -0.45f, 0.835f, 0.0035f, 1.0f, 1.0f, 1.0f);
         } else {
             addRectangle(vertices, -0.50f, 0.92f, -0.30f, 0.73f, 0.40f, 0.40f, 0.40f); // Locked card
-            drawText(vertices, rangedUnlocked ? "COST 20" : "LOCKED", -0.45f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
+            drawText(vertices, rangedUnlocked ? "COST 20" : "WAVE 2", -0.45f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
         }
         drawText(vertices, "RANGED", -0.44f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
 
@@ -859,7 +1013,7 @@ int main() {
             drawText(vertices, "COST 30", -0.20f, 0.835f, 0.0035f, 1.0f, 1.0f, 1.0f);
         } else {
             addRectangle(vertices, -0.25f, 0.92f, -0.05f, 0.73f, 0.40f, 0.40f, 0.40f); // Locked card
-            drawText(vertices, defenseUnlocked ? "COST 30" : "LOCKED", -0.20f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
+            drawText(vertices, defenseUnlocked ? "COST 30" : "WAVE 2", -0.20f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
         }
         drawText(vertices, "DEFENSE", -0.20f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
 
@@ -874,10 +1028,6 @@ int main() {
             else if (y < 0.20f && y >= -0.28f) hoveredLane = 1;
             else if (y < -0.28f && y >= -0.82f) hoveredLane = 2;
         }
-
-        if (selectedLanes[0]) addLaneOutline(vertices, 0.62f, 0.20f);
-        if (selectedLanes[1]) addLaneOutline(vertices, 0.20f, -0.28f);
-        if (selectedLanes[2]) addLaneOutline(vertices, -0.28f, -0.82f);
 
         // Check Escape key for pause
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
@@ -899,6 +1049,7 @@ int main() {
                 delete players[p];
             }
             players.clear();
+            impacts.clear();
             projectiles.clear();
             enemyProjectiles.clear();
             collectibles.clear();
@@ -909,10 +1060,11 @@ int main() {
             spawnTimer = 0;
             waveTransitionTimer = 0.0f;
 
+            gameplayTicks = 0;
             coins = startingCoins;
-            coinsCollected = 0;
             selectedPlayerType = -1;
             placementLane = -1;
+            placingDefense = false;
             selectedLanes[0] = false;
             selectedLanes[1] = false;
             selectedLanes[2] = false;
@@ -969,11 +1121,13 @@ int main() {
                     int lane = std::rand() % 3;
                     enemies.push_back(Enemy(lane, type));
                     enemiesSpawned = enemiesSpawned + 1;
-                    spawnTimer = framesBetweenSpawns;
+                    spawnTimer = framesBetweenSpawns[currentWave - 1];
                 }
             }
         }
 
+        rangedUnlocked = currentWave >= 2;
+        defenseUnlocked = currentWave >= 2;
         int playerToPlace = -1;
         bool isPlayerKeyDown = false;
         if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
@@ -991,10 +1145,17 @@ int main() {
         }
         wasPlayerKeyDown = isPlayerKeyDown;
 
-        // Lane clicks only select. Cards or number keys buy one player.
+        // Selecting defense arms placement at the next clicked lane position.
         if (!isPaused && !isGameOver && !hasWon && mouseClicked) {
             if (hoveredCard != -1) {
                 playerToPlace = hoveredCard;
+            } else if (hoveredLane != -1 && placingDefense && defenseUnlocked && coins >= 30) {
+                defense_player* player = new defense_player();
+                player->setLane(hoveredLane);
+                player->x = std::clamp(x, -0.72f, 0.90f);
+                players.push_back(player);
+                coins -= 30;
+                placingDefense = false;
             } else if (hoveredLane != -1) {
                 selectedLanes[hoveredLane] = !selectedLanes[hoveredLane];
                 if (selectedLanes[hoveredLane]) {
@@ -1011,6 +1172,13 @@ int main() {
             }
         }
 
+        if (playerToPlace == 2 && defenseUnlocked && coins >= 30) {
+            placingDefense = !placingDefense;
+            selectedPlayerType = 2;
+        } else if (playerToPlace == 0 || playerToPlace == 1) {
+            placingDefense = false;
+        }
+
         if (placementLane != -1) {
             if (playerToPlace == 0 && coins >= 10) {
                 melee_player* p = new melee_player();
@@ -1024,15 +1192,13 @@ int main() {
                 players.push_back(p);
                 coins = coins - 20;
                 selectedPlayerType = 1;
-            } else if (playerToPlace == 2 && defenseUnlocked && coins >= 30) {
-                defense_player* p = new defense_player();
-                p->setLane(placementLane);
-                players.push_back(p);
-                coins = coins - 30;
-                selectedPlayerType = 2;
             }
         }
-        drawText(vertices, "SELECT LANE THEN CARD OR 1 2 3", -0.72f, -0.90f, 0.005f);
+        const char* placementHint = placingDefense ? "CLICK A LANE POSITION TO PLACE DEFENSE"
+                                                 : "SELECT LANE THEN CARD OR 1 2 3";
+        drawText(vertices, placementHint, -0.72f, -0.90f, 0.005f);
+        drawText(vertices, "W OR UP: JUMP LOW SHOTS   S OR DOWN: DUCK HIGH SHOTS",
+                 -0.72f, -0.96f, 0.0035f);
 
         // Check keyboard for Jump (W / Up) and Duck (S / Down) across all selected lanes
         if (!isPaused && !isGameOver && !hasWon) {
@@ -1120,32 +1286,18 @@ int main() {
                     players[i]->move();
                 }
                 players[i]->updateJump();
-            }
-
-            if (players[i]->playerType == playerClass::MELEE) {
-                for (size_t j = 0; j < enemies.size(); j++) {
-                    float dist = enemies[j].x - players[i]->x;
-                    if (enemies[j].active && enemies[j].lane == players[i]->lane &&
-                        dist >= 0.0f && dist <= contactDistance) {
-                        float punchY = players[i]->y + players[i]->yOffset;
-                        addRectangle(vertices, players[i]->x + 0.04f, punchY + 0.02f,
-                                               players[i]->x + 0.09f, punchY - 0.02f,
-                                               1.0f, 0.4f, 0.4f);
-                        break;
-                    }
+                float exitMargin = std::max(0.10f,
+                    0.15f * 88.0f / 104.0f * gameHeight / gameWidth);
+                if (players[i]->playerType != playerClass::DEFENSE &&
+                    players[i]->x > 1.0f + exitMargin) {
+                    delete players[i];
+                    players.erase(players.begin() + i);
+                    --i;
+                    continue;
                 }
             }
 
             float drawY = players[i]->y + players[i]->yOffset;
-            // Health bar above player
-            float px = players[i]->x;
-            float barY = drawY + 0.080f;
-            addRectangle(vertices, px - 0.04f, barY + 0.006f, px + 0.04f, barY - 0.006f, 0.35f, 0.1f, 0.1f);
-            float hpRatio = (float)players[i]->health / (float)players[i]->maxHealth;
-            if (hpRatio < 0.0f) hpRatio = 0.0f;
-            if (hpRatio > 1.0f) hpRatio = 1.0f;
-            addRectangle(vertices, px - 0.04f, barY + 0.006f, px - 0.04f + 0.08f * hpRatio, barY - 0.006f, 0.2f, 0.85f, 0.2f);
-
             // Check if protected behind a defense player on the same lane
             bool protectedByDefense = hasDefenseInFront(players[i], players);
             players[i]->isProtected = protectedByDefense;
@@ -1186,6 +1338,7 @@ int main() {
                             float dist = std::abs(projectiles[i].x - enemies[j].x);
                             if (dist < 0.05f) {
                                 projectiles[i].active = false;
+                                impacts.push_back({projectiles[i].x, projectiles[i].y, 8});
                                 enemies[j].health = enemies[j].health - 1;
                                 if (enemies[j].health <= 0) {
                                     enemies[j].active = false;
@@ -1210,7 +1363,12 @@ int main() {
                 if (projectiles[i].active == true) {
                     addRectangle(vertices, projectiles[i].x - 0.02f, projectiles[i].y + 0.015f,
                                            projectiles[i].x + 0.02f, projectiles[i].y - 0.015f,
-                                           1.0f, 0.85f, 0.1f); // Yellow projectile bullet
+                                           0.9f, 0.50f, 0.05f);
+                    addRectangle(vertices, projectiles[i].x - 0.012f, projectiles[i].y + 0.006f,
+                                 projectiles[i].x + 0.014f, projectiles[i].y - 0.006f, 1, 1, 0.75f);
+                    addTriangle(vertices, projectiles[i].x + 0.014f, projectiles[i].y + 0.015f,
+                                projectiles[i].x + 0.03f, projectiles[i].y,
+                                projectiles[i].x + 0.014f, projectiles[i].y - 0.015f, 1, 0.85f, 0.1f);
                 }
             }
         }
@@ -1225,7 +1383,6 @@ int main() {
                             float dist = std::abs(players[p]->x - collectibles[i].x);
                             if (dist < 0.06f) {
                                 coins = coins + collectibles[i].value;
-                                coinsCollected += collectibles[i].value;
                                 collectibles[i].active = false;
                                 break;
                             }
@@ -1233,11 +1390,17 @@ int main() {
                     }
                 }
 
-                // Simple yellow square for dropped coin
-                if (collectibles[i].active == true) {
-                    addRectangle(vertices, collectibles[i].x - 0.02f, collectibles[i].y + 0.02f,
-                                           collectibles[i].x + 0.02f, collectibles[i].y - 0.02f,
-                                           1.0f, 0.85f, 0.1f);
+                if (collectibles[i].active) {
+                    float cx = collectibles[i].x;
+                    float cy = collectibles[i].y;
+                    addRectangle(vertices, cx - 0.016f, cy + 0.025f, cx + 0.016f, cy - 0.025f,
+                                 0.65f, 0.32f, 0.04f);
+                    addRectangle(vertices, cx - 0.022f, cy + 0.015f, cx + 0.022f, cy - 0.015f,
+                                 0.65f, 0.32f, 0.04f);
+                    addRectangle(vertices, cx - 0.012f, cy + 0.019f, cx + 0.012f, cy - 0.019f,
+                                 1.0f, 0.78f, 0.12f);
+                    addRectangle(vertices, cx - 0.005f, cy + 0.012f, cx + 0.002f, cy - 0.012f,
+                                 1.0f, 0.97f, 0.65f);
                 }
             }
         }
@@ -1267,24 +1430,18 @@ int main() {
                         players[blockingPlayer]->takeDamage(enemies[j].damage);
                     }
 
-                    int animCycle = enemies[j].attackTimer % 300;
-
-                    // Ranged enemies stop to throw. Melee enemies keep advancing.
-                    if (enemies[j].type == HARD || animCycle < 150) {
-                        if (blockingPlayer == -1) {
-                            enemies[j].moveLeft();
-                            if (enemies[j].x <= -0.80f) {
-                                isGameOver = true;
-                            }
-                        }
-                    } else if (animCycle == 240) {
-                        // Frame 5 release: throw spear straight horizontally down the lane!
+                    if (blockingPlayer == -1) {
+                        enemies[j].moveLeft();
+                        if (enemies[j].x <= -0.80f) isGameOver = true;
+                    }
+                    if (!isGameOver && enemies[j].type != HARD &&
+                        enemies[j].attackTimer % rangedCycleFrames == 0) {
                         Projectile spear;
                         spear.x = enemies[j].x;
-                        spear.y = enemies[j].y;
+                        spear.y = enemies[j].y + 0.035f;
                         if (enemies[j].type == MEDIUM) {
                             spear.isLow = true;
-                            spear.y = enemies[j].y - 0.05f;
+                            spear.y = enemies[j].y - 0.065f;
                         }
                         spear.lane = enemies[j].lane;
                         spear.speed = 0.0075f;
@@ -1293,34 +1450,15 @@ int main() {
                     }
                 }
 
-                int animCycle = enemies[j].attackTimer % 300;
-                if (enemies[j].type != HARD && animCycle >= 190 && animCycle < 240) {
-                    // Equation from Frame 4
-                    drawText(vertices, "D=U*T", enemies[j].x - 0.10f, enemies[j].y + 0.13f, 0.003f, 1.0f, 1.0f, 0.2f);
 
-                    // Straight horizontal aiming line dots extending forward from spear
-                    for (float t = 0.0f; t <= 1.0f; t += 0.10f) {
-                        float aimX = enemies[j].x - 0.05f - t * 0.25f;
-                        float aimY = enemies[j].y;
-                        if (enemies[j].type == MEDIUM) {
-                            aimY = enemies[j].y - 0.05f;
-                        }
-                        addRectangle(vertices, aimX - 0.002f, aimY + 0.002f, aimX + 0.002f, aimY - 0.002f,
-                                               1.0f, 0.9f, 0.3f);
-                    }
-                }
-
-                // Enemy Health bar above head (red background, green remaining)
-                float healthRatio = (float)enemies[j].health / (float)enemies[j].maxHealth;
-                if (healthRatio < 0.0f) healthRatio = 0.0f;
-                if (healthRatio > 1.0f) healthRatio = 1.0f;
-                addRectangle(vertices, enemies[j].x - 0.04f, enemies[j].y + 0.09f,
-                                       enemies[j].x + 0.04f, enemies[j].y + 0.08f,
-                                       0.6f, 0.1f, 0.1f);
-                addRectangle(vertices, enemies[j].x - 0.04f, enemies[j].y + 0.09f,
-                                       enemies[j].x - 0.04f + 0.08f * healthRatio, enemies[j].y + 0.08f,
-                                       0.1f, 0.85f, 0.2f);
             }
+        }
+
+        // Impacts advance on the same clock as combat.
+        if (!isPaused && !isGameOver && !hasWon) {
+            for (Impact& impact : impacts) --impact.ticks;
+            impacts.erase(std::remove_if(impacts.begin(), impacts.end(),
+                          [](const Impact& impact) { return impact.ticks <= 0; }), impacts.end());
         }
 
         // Move and update enemy spears thrown horizontally at players
@@ -1336,10 +1474,14 @@ int main() {
                             float dist = std::abs(enemyProjectiles[k].x - players[p]->x);
                             if (dist < 0.05f) {
                                 if (players[p]->playerType != playerClass::DEFENSE) {
-                                    if (enemyProjectiles[k].isLow && players[p]->yOffset > 0.05f) {
-                                        continue;
+                                    float bodyBottom = players[p]->y + players[p]->yOffset - 0.14f;
+                                    float bodyTop = players[p]->y + players[p]->yOffset + 0.055f;
+                                    if (players[p]->yOffset < 0) {
+                                        bodyBottom = players[p]->y - 0.14f;
+                                        bodyTop = players[p]->y - 0.005f;
                                     }
-                                    if (!enemyProjectiles[k].isLow && players[p]->yOffset < -0.02f) {
+                                    float shotY = enemyProjectiles[k].y;
+                                    if (shotY + 0.008f < bodyBottom || shotY - 0.008f > bodyTop) {
                                         continue;
                                     }
                                 }
@@ -1351,6 +1493,7 @@ int main() {
                     }
                     if (targetPlayer != -1) {
                         enemyProjectiles[k].active = false;
+                        impacts.push_back({enemyProjectiles[k].x, enemyProjectiles[k].y, 8});
                         players[targetPlayer]->isProtected = hasDefenseInFront(players[targetPlayer], players);
                         players[targetPlayer]->takeDamage(1);
                     }
@@ -1387,6 +1530,7 @@ int main() {
                      0.36f, 0.69f, 0.0035f);
         }
 
+        if (!isPaused && !isGameOver && !hasWon) ++gameplayTicks;
         const size_t sceneVertexCount = vertices.size();
         if (hasWon) {
             addRectangle(vertices, -0.82f, 0.53f, 0.82f, 0.51f, 0.55f, 0.0f, 0.03f);
@@ -1439,7 +1583,7 @@ int main() {
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
 
-        glClearColor(0.15f, 0.35f, 0.12f, 1.0f);
+        glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
         if (hasWon && endingBackgroundTexture) {
             const float cover[] = {
@@ -1467,8 +1611,8 @@ int main() {
             continue;
         }
         if (waveTransitionTimer > 0.0f) {
-            int shake = static_cast<int>(std::sin(glfwGetTime() * 70.0) * 9.0);
-            glViewport(shake, 0, framebufferWidth, framebufferHeight);
+            int shake = static_cast<int>(std::sin(gameplayTicks * 70.0 / 60.0) * 9.0);
+            glViewport(gameLeft + shake, gameBottom, gameWidth, gameHeight);
         }
 
         const float backgroundQuad[] = {
@@ -1491,6 +1635,34 @@ int main() {
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(sceneVertexCount / 6));
 
+        std::vector<float> laneFills;
+        std::vector<float> laneBorders;
+        const float laneTops[] = {0.62f, 0.20f, -0.28f};
+        const float laneBottoms[] = {0.20f, -0.28f, -0.82f};
+        for (int lane = 0; lane < 3; ++lane) {
+            bool selected = selectedLanes[lane];
+            bool hovered = lane == hoveredLane && !isPaused && !isGameOver && !hasWon;
+            if (!selected && !hovered) continue;
+            float red = selected ? 1.0f : 0.18f;
+            float green = selected ? 0.78f : 0.88f;
+            float blue = selected ? 0.12f : 1.0f;
+            addRectangle(laneFills, -0.80f, laneTops[lane], 0.98f, laneBottoms[lane],
+                         red, green, blue);
+            addLaneOutline(laneBorders, laneTops[lane], laneBottoms[lane], selected);
+            if (selected) {
+                drawText(laneBorders, "SELECTED", -0.76f, laneTops[lane] - 0.035f,
+                         0.004f, red, green, blue);
+            }
+        }
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, laneFills.size() * sizeof(float), laneFills.data(), GL_DYNAMIC_DRAW);
+        glBlendColor(0, 0, 0, 0.22f);
+        glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(laneFills.size() / 6));
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBufferData(GL_ARRAY_BUFFER, laneBorders.size() * sizeof(float), laneBorders.data(), GL_DYNAMIC_DRAW);
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(laneBorders.size() / 6));
+
         for (size_t i = 0; i < players.size(); i++) {
             if (players[i]->health <= 0) continue;
             int type = static_cast<int>(players[i]->playerType);
@@ -1500,20 +1672,26 @@ int main() {
                 melee_player* melee = static_cast<melee_player*>(players[i]);
                 if (melee->attackCooldown > 0) animation = 3;
             }
+            if (players[i]->playerType == playerClass::RANGED &&
+                static_cast<ranged_player*>(players[i])->attackAnimationTimer > 0) animation = 3;
             GLuint texture = playerAnimationTextures[type][animation];
             int frameCount = playerAnimationFrames[type][animation];
             if (!texture || frameCount == 0) continue;
 
-            int frame = static_cast<int>(glfwGetTime() * 8.0) % frameCount;
-            float u0 = static_cast<float>(frame) / frameCount;
-            float u1 = static_cast<float>(frame + 1) / frameCount;
-            const float left = players[i]->x - 0.055f;
-            const float right = players[i]->x + 0.055f;
-            const float top = players[i]->y + players[i]->yOffset + 0.085f;
-            const float bottom = players[i]->y + players[i]->yOffset - 0.085f;
+            int frame = (gameplayTicks * 8 / 60) % frameCount;
+            // The characters occupy x=20..108 and y=24..128 inside each 128px frame.
+            float u0 = (frame + 20.0f / 128.0f) / frameCount;
+            float u1 = (frame + 108.0f / 128.0f) / frameCount;
+            float vTop = 1.0f - 24.0f / 128.0f;
+            float halfWidth = 0.15f * 88.0f / 104.0f * gameHeight / gameWidth;
+            float left = players[i]->x - halfWidth;
+            float right = players[i]->x + halfWidth;
+            float top = players[i]->y + players[i]->yOffset + 0.15f;
+            float bottom = players[i]->y + players[i]->yOffset - 0.15f;
+            if (players[i]->yOffset < 0) bottom = players[i]->y - 0.15f;
             const float quad[] = {
-                left,top,u0,1, right,top,u1,1, right,bottom,u1,0,
-                left,top,u0,1, right,bottom,u1,0, left,bottom,u0,0
+                left,top,u0,vTop, right,top,u1,vTop, right,bottom,u1,0,
+                left,top,u0,vTop, right,bottom,u1,0, left,bottom,u0,0
             };
             glUseProgram(playerProgram);
             glUniform1f(damageLocation, getDamageAmount(players[i]->health, players[i]->maxHealth));
@@ -1529,12 +1707,14 @@ int main() {
         // Draw animated enemy textured quads
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active) {
-                int animCycle = enemies[j].attackTimer % 300;
+                int shotFrame = enemies[j].attackTimer % rangedCycleFrames;
+                bool firing = enemies[j].type != HARD &&
+                              enemies[j].attackTimer >= rangedCycleFrames && shotFrame < 30;
                 bool useAdventurer = enemies[j].type == MEDIUM;
                 bool useMech = enemies[j].type == HARD && mechWalkTexture && mechAttackTexture;
-                int animation = (enemies[j].type != HARD && animCycle >= 150) ? 2 : 1;
+                int animation = firing ? 2 : 1;
                 int frameCount[] = {2, 8, 5};
-                int frame = (enemies[j].attackTimer / 8) % frameCount[animation];
+                int frame = firing ? shotFrame / 6 : (enemies[j].attackTimer / 8) % frameCount[animation];
                 GLuint enemyTexture = 0;
                 float u0, u1;
                 float quadLeft = enemies[j].x - 0.07f;
@@ -1562,9 +1742,9 @@ int main() {
                     u0 = static_cast<float>(frame) / frameCount[animation];
                     u1 = static_cast<float>(frame + 1) / frameCount[animation];
                 } else {
-                    int oldFrame = enemies[j].type == HARD || animCycle < 150
-                        ? (enemies[j].attackTimer / 50) % 3 == 2 ? 6 : (enemies[j].attackTimer / 50) % 3
-                        : animCycle < 190 ? 2 : animCycle < 240 ? 3 : animCycle < 270 ? 4 : 5;
+                    int oldFrame = (enemies[j].attackTimer / 50) % 3;
+                    if (oldFrame == 2) oldFrame = 6;
+                    if (firing) oldFrame = shotFrame < 15 ? 4 : 5;
                     enemyTexture = originalEnemyTextures[oldFrame];
                     u0 = 0.0f;
                     u1 = 1.0f;
@@ -1597,7 +1777,7 @@ int main() {
             glUseProgram(playerProgram);
             glUniform1f(damageLocation, 0.0f);
             for (size_t k = 0; k < enemyProjectiles.size(); k++) {
-                if (enemyProjectiles[k].active) {
+                if (enemyProjectiles[k].active && !enemyProjectiles[k].isLow) {
                     const float left = enemyProjectiles[k].x - 0.045f;
                     const float right = enemyProjectiles[k].x + 0.045f;
                     const float top = enemyProjectiles[k].y + 0.008f;
@@ -1624,6 +1804,76 @@ int main() {
                 }
             }
         }
+
+        std::vector<float> characterOverlay;
+        for (const Projectile& shot : enemyProjectiles) {
+            if (!shot.active || !shot.isLow) continue;
+            addRectangle(characterOverlay, shot.x - 0.024f, shot.y + 0.012f,
+                         shot.x + 0.018f, shot.y - 0.012f, 0.05f, 0.55f, 0.9f);
+            addRectangle(characterOverlay, shot.x - 0.015f, shot.y + 0.005f,
+                         shot.x + 0.024f, shot.y - 0.005f, 0.75f, 1, 1);
+        }
+        for (const Impact& impact : impacts) {
+            float size = 0.008f + (8 - impact.ticks) * 0.003f;
+            addRectangle(characterOverlay, impact.x - size, impact.y + 0.006f,
+                         impact.x + size, impact.y - 0.006f, 1, 0.9f, 0.4f);
+            addRectangle(characterOverlay, impact.x - 0.004f, impact.y + size * 1.5f,
+                         impact.x + 0.004f, impact.y - size * 1.5f, 1, 1, 0.8f);
+        }
+        for (playerClass* player : players) {
+            if (player->health <= 0) continue;
+            float px = player->x;
+            float py = player->y + player->yOffset;
+            if (player->playerType == playerClass::DEFENSE) {
+                addRectangle(characterOverlay, px + 0.018f, py + 0.055f, px + 0.058f, py - 0.06f,
+                             0.10f, 0.18f, 0.24f);
+                addRectangle(characterOverlay, px + 0.023f, py + 0.045f, px + 0.053f, py - 0.048f,
+                             0.25f, 0.55f, 0.65f);
+                addRectangle(characterOverlay, px + 0.036f, py + 0.04f, px + 0.041f, py - 0.043f,
+                             0.75f, 0.95f, 1);
+            } else if (player->playerType == playerClass::MELEE) {
+                int cooldown = static_cast<melee_player*>(player)->attackCooldown;
+                float swing = 0.0f;
+                if (cooldown > 35) swing = (50 - cooldown) / 15.0f;
+                else if (cooldown > 0) swing = 1.0f;
+                float tipX = px + 0.035f + swing * 0.06f;
+                float tipY = py + 0.075f - swing * 0.065f;
+                addTriangle(characterOverlay, px + 0.025f, py, tipX, tipY,
+                            tipX + 0.008f, tipY, 0.65f, 0.80f, 0.85f);
+                addTriangle(characterOverlay, px + 0.025f, py, tipX + 0.008f, tipY,
+                            px + 0.033f, py, 0.65f, 0.80f, 0.85f);
+                addRectangle(characterOverlay, px + 0.023f, py + 0.003f,
+                             px + 0.035f, py - 0.01f, 0.15f, 0.15f, 0.18f);
+            } else {
+                addRectangle(characterOverlay, px + 0.018f, py + 0.012f,
+                             px + 0.07f, py + 0.002f, 0.16f, 0.2f, 0.25f);
+                addRectangle(characterOverlay, px + 0.03f, py + 0.002f,
+                             px + 0.038f, py - 0.017f, 0.3f, 0.25f, 0.18f);
+            }
+            float top = player->y + player->yOffset + 0.18f;
+            float fraction = static_cast<float>(player->health) / player->maxHealth;
+            addRectangle(characterOverlay, player->x - 0.04f, top, player->x + 0.04f,
+                         top - 0.012f, 0.6f, 0.1f, 0.1f);
+            addRectangle(characterOverlay, player->x - 0.04f, top,
+                         player->x - 0.04f + 0.08f * fraction, top - 0.012f,
+                         0.1f, 0.85f, 0.2f);
+        }
+        for (const Enemy& enemy : enemies) {
+            if (!enemy.active) continue;
+            float top = enemy.y + 0.14f;
+            float fraction = static_cast<float>(enemy.health) / enemy.maxHealth;
+            addRectangle(characterOverlay, enemy.x - 0.04f, top, enemy.x + 0.04f,
+                         top - 0.012f, 0.6f, 0.1f, 0.1f);
+            addRectangle(characterOverlay, enemy.x - 0.04f, top,
+                         enemy.x - 0.04f + 0.08f * fraction, top - 0.012f,
+                         0.1f, 0.85f, 0.2f);
+        }
+        glUseProgram(shaderProgram);
+        glBindVertexArray(VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, characterOverlay.size() * sizeof(float), characterOverlay.data(), GL_DYNAMIC_DRAW);
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(characterOverlay.size() / 6));
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
 
         if (isPaused || isGameOver || hasWon) {
             glUseProgram(shaderProgram);

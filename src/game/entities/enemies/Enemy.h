@@ -20,7 +20,7 @@ public:
         type = enemyType;
         active = true;
         x = 0.90f;        // Start on the right side of the lane
-        speed = 0.0012f;  // Moves left towards the house base
+        speed = 0.0006f;  // Ranged enemies advance steadily while firing
 
         if (lane == 0) {
             y = 0.41f;    // Top lane

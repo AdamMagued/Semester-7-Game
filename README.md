@@ -29,7 +29,9 @@ With the Visual Studio generator on Windows:
 
 - Enter or Start: start a new game.
 - Click a lane: select or deselect it. Multiple lanes can be selected.
-- Click a card or press 1, 2, or 3: buy melee, ranged, or defense for the last selected lane.
+- Click melee/ranged or press 1/2: buy that player for the last selected lane.
+- Click defense or press 3, then click a position inside a lane: place a stationary defense player there.
+- Ranged and defense cards are available from wave 2 when affordable.
 - W or Up: jump with players in selected lanes.
 - S or Down: duck with players in selected lanes.
 - Escape: pause or continue.

@@ -1576,15 +1576,19 @@ int main() {
             if (!texture || frameCount == 0) continue;
 
             int frame = (gameplayTicks * 8 / 60) % frameCount;
-            float u0 = static_cast<float>(frame) / frameCount;
-            float u1 = static_cast<float>(frame + 1) / frameCount;
-            const float left = players[i]->x - 0.055f;
-            const float right = players[i]->x + 0.055f;
-            const float top = players[i]->y + players[i]->yOffset + 0.085f;
-            const float bottom = players[i]->y + players[i]->yOffset - 0.085f;
+            // The characters occupy x=20..108 and y=24..128 inside each 128px frame.
+            float u0 = (frame + 20.0f / 128.0f) / frameCount;
+            float u1 = (frame + 108.0f / 128.0f) / frameCount;
+            float vTop = 1.0f - 24.0f / 128.0f;
+            float halfWidth = 0.15f * 88.0f / 104.0f * framebufferHeight / framebufferWidth;
+            float left = players[i]->x - halfWidth;
+            float right = players[i]->x + halfWidth;
+            float top = players[i]->y + players[i]->yOffset + 0.15f;
+            float bottom = players[i]->y + players[i]->yOffset - 0.15f;
+            if (players[i]->yOffset < 0) bottom = players[i]->y - 0.15f;
             const float quad[] = {
-                left,top,u0,1, right,top,u1,1, right,bottom,u1,0,
-                left,top,u0,1, right,bottom,u1,0, left,bottom,u0,0
+                left,top,u0,vTop, right,top,u1,vTop, right,bottom,u1,0,
+                left,top,u0,vTop, right,bottom,u1,0, left,bottom,u0,0
             };
             glUseProgram(playerProgram);
             glUniform1f(damageLocation, getDamageAmount(players[i]->health, players[i]->maxHealth));
@@ -1743,7 +1747,7 @@ int main() {
                 addRectangle(characterOverlay, px + 0.03f, py + 0.002f,
                              px + 0.038f, py - 0.017f, 0.3f, 0.25f, 0.18f);
             }
-            float top = player->y + player->yOffset + 0.12f;
+            float top = player->y + player->yOffset + 0.18f;
             float fraction = static_cast<float>(player->health) / player->maxHealth;
             addRectangle(characterOverlay, player->x - 0.04f, top, player->x + 0.04f,
                          top - 0.012f, 0.6f, 0.1f, 0.1f);

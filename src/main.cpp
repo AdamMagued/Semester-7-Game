@@ -1137,6 +1137,8 @@ int main() {
             }
         }
         drawText(vertices, "SELECT LANE THEN CARD OR 1 2 3", -0.72f, -0.90f, 0.005f);
+        drawText(vertices, "W OR UP: JUMP LOW SHOTS   S OR DOWN: DUCK HIGH SHOTS",
+                 -0.72f, -0.96f, 0.0035f);
 
         // Check keyboard for Jump (W / Up) and Duck (S / Down) across all selected lanes
         if (!isPaused && !isGameOver && !hasWon) {
@@ -1367,10 +1369,10 @@ int main() {
                         enemies[j].attackTimer % rangedCycleFrames == 0) {
                         Projectile spear;
                         spear.x = enemies[j].x;
-                        spear.y = enemies[j].y;
+                        spear.y = enemies[j].y + 0.035f;
                         if (enemies[j].type == MEDIUM) {
                             spear.isLow = true;
-                            spear.y = enemies[j].y - 0.05f;
+                            spear.y = enemies[j].y - 0.065f;
                         }
                         spear.lane = enemies[j].lane;
                         spear.speed = 0.0075f;
@@ -1403,10 +1405,14 @@ int main() {
                             float dist = std::abs(enemyProjectiles[k].x - players[p]->x);
                             if (dist < 0.05f) {
                                 if (players[p]->playerType != playerClass::DEFENSE) {
-                                    if (enemyProjectiles[k].isLow && players[p]->yOffset > 0.05f) {
-                                        continue;
+                                    float bodyBottom = players[p]->y + players[p]->yOffset - 0.14f;
+                                    float bodyTop = players[p]->y + players[p]->yOffset + 0.055f;
+                                    if (players[p]->yOffset < 0) {
+                                        bodyBottom = players[p]->y - 0.14f;
+                                        bodyTop = players[p]->y - 0.005f;
                                     }
-                                    if (!enemyProjectiles[k].isLow && players[p]->yOffset < -0.02f) {
+                                    float shotY = enemyProjectiles[k].y;
+                                    if (shotY + 0.008f < bodyBottom || shotY - 0.008f > bodyTop) {
                                         continue;
                                     }
                                 }

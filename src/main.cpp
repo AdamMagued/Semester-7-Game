@@ -1746,7 +1746,9 @@ int main() {
                              0.75f, 0.95f, 1);
             } else if (player->playerType == playerClass::MELEE) {
                 int cooldown = static_cast<melee_player*>(player)->attackCooldown;
-                float swing = cooldown > 35 ? (50 - cooldown) / 15.0f : 1.0f;
+                float swing = 0.0f;
+                if (cooldown > 35) swing = (50 - cooldown) / 15.0f;
+                else if (cooldown > 0) swing = 1.0f;
                 float tipX = px + 0.035f + swing * 0.06f;
                 float tipY = py + 0.075f - swing * 0.065f;
                 addTriangle(characterOverlay, px + 0.025f, py, tipX, tipY,

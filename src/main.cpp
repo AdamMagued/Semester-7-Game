@@ -416,9 +416,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "Lane Defense", monitor, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1280, 720, "Lane Defense", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create window\n";
         glfwTerminate();
@@ -436,7 +434,7 @@ int main() {
     }
 
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-    bool isFullscreen = true;
+    bool isFullscreen = false;
     bool wasF11Down = false;
     int framebufferWidth;
     int framebufferHeight;
@@ -664,8 +662,7 @@ int main() {
         glfwGetCursorPos(window, &mouseX, &mouseY);
         glfwGetWindowSize(window, &windowWidth, &windowHeight);
 
-        float x = 2.0f * static_cast<float>(mouseX) / windowWidth - 1.0f;
-        float y = 1.0f - 2.0f * static_cast<float>(mouseY) / windowHeight;
+        float x, y;
 
         int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
         bool mouseClicked = false;
@@ -692,7 +689,19 @@ int main() {
         }
         wasF11Down = f11Down;
         glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
-        glViewport(0, 0, framebufferWidth, framebufferHeight);
+        int gameWidth = std::min(framebufferWidth, framebufferHeight * 16 / 9);
+        int gameHeight = std::min(framebufferHeight, framebufferWidth * 9 / 16);
+        int gameLeft = (framebufferWidth - gameWidth) / 2;
+        int gameBottom = (framebufferHeight - gameHeight) / 2;
+        glfwGetWindowSize(window, &windowWidth, &windowHeight);
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+        if (gameWidth == 0 || gameHeight == 0 || windowWidth == 0 || windowHeight == 0) {
+            glfwPollEvents();
+            continue;
+        }
+        x = 2.0f * (mouseX * framebufferWidth / windowWidth - gameLeft) / gameWidth - 1.0f;
+        y = 1.0f - 2.0f * (mouseY * framebufferHeight / windowHeight - gameBottom) / gameHeight;
+        glViewport(gameLeft, gameBottom, gameWidth, gameHeight);
         bool spaceDown = glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS;
         bool spacePressed = spaceDown && !wasSpaceDown;
         wasSpaceDown = spaceDown;
@@ -875,7 +884,7 @@ int main() {
             accumulatedTime = 0.0;
             glBindBuffer(GL_ARRAY_BUFFER, VBO);
             glBufferData(GL_ARRAY_BUFFER, menuVertices.size() * sizeof(float), menuVertices.data(), GL_DYNAMIC_DRAW);
-            glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+            glClearColor(0, 0, 0, 1);
             glClear(GL_COLOR_BUFFER_BIT);
             if (menuBackgroundTexture) {
                 const float menuQuad[] = {
@@ -1088,7 +1097,7 @@ int main() {
         }
         wasPlayerKeyDown = isPlayerKeyDown;
 
-        // Lane clicks only select. Cards or number keys buy one player.
+        // Selecting defense arms placement at the next clicked lane position.
         if (!isPaused && !isGameOver && !hasWon && mouseClicked) {
             if (hoveredCard != -1) {
                 playerToPlace = hoveredCard;
@@ -1135,7 +1144,6 @@ int main() {
                 players.push_back(p);
                 coins = coins - 20;
                 selectedPlayerType = 1;
-
             }
         }
         const char* placementHint = placingDefense ? "CLICK A LANE POSITION TO PLACE DEFENSE"
@@ -1231,7 +1239,7 @@ int main() {
                 }
                 players[i]->updateJump();
                 float exitMargin = std::max(0.10f,
-                    0.15f * 88.0f / 104.0f * framebufferHeight / framebufferWidth);
+                    0.15f * 88.0f / 104.0f * gameHeight / gameWidth);
                 if (players[i]->playerType != playerClass::DEFENSE &&
                     players[i]->x > 1.0f + exitMargin) {
                     delete players[i];
@@ -1527,7 +1535,7 @@ int main() {
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
 
-        glClearColor(0.15f, 0.35f, 0.12f, 1.0f);
+        glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
         if (hasWon && endingBackgroundTexture) {
             const float cover[] = {
@@ -1556,7 +1564,7 @@ int main() {
         }
         if (waveTransitionTimer > 0.0f) {
             int shake = static_cast<int>(std::sin(gameplayTicks * 70.0 / 60.0) * 9.0);
-            glViewport(shake, 0, framebufferWidth, framebufferHeight);
+            glViewport(gameLeft + shake, gameBottom, gameWidth, gameHeight);
         }
 
         const float backgroundQuad[] = {
@@ -1627,7 +1635,7 @@ int main() {
             float u0 = (frame + 20.0f / 128.0f) / frameCount;
             float u1 = (frame + 108.0f / 128.0f) / frameCount;
             float vTop = 1.0f - 24.0f / 128.0f;
-            float halfWidth = 0.15f * 88.0f / 104.0f * framebufferHeight / framebufferWidth;
+            float halfWidth = 0.15f * 88.0f / 104.0f * gameHeight / gameWidth;
             float left = players[i]->x - halfWidth;
             float right = players[i]->x + halfWidth;
             float top = players[i]->y + players[i]->yOffset + 0.15f;

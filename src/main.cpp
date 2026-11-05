@@ -532,9 +532,9 @@ int main() {
 
     // --- Playfield rectangles ---
     std::vector<float> vertices;
-    addRectangle(vertices, -0.82f,  0.62f, 0.98f,  0.20f, 0.035f, 0.09f, 0.16f);
-    addRectangle(vertices, -0.82f,  0.20f, 0.98f, -0.28f, 0.035f, 0.09f, 0.16f);
-    addRectangle(vertices, -0.82f, -0.28f, 0.98f, -0.82f, 0.035f, 0.09f, 0.16f);
+    addRectangle(vertices, -0.82f,  0.62f, 0.98f,  0.20f, 0.09f, 0.17f, 0.25f);
+    addRectangle(vertices, -0.82f,  0.20f, 0.98f, -0.28f, 0.09f, 0.17f, 0.25f);
+    addRectangle(vertices, -0.82f, -0.28f, 0.98f, -0.82f, 0.09f, 0.17f, 0.25f);
     addRectangle(vertices, -0.80f,  0.205f, 0.98f,  0.195f, 0.05f, 0.68f, 0.84f);
     addRectangle(vertices, -0.80f, -0.275f, 0.98f, -0.285f, 0.05f, 0.68f, 0.84f);
 

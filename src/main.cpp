@@ -579,7 +579,6 @@ int main() {
     int placementLane = -1;
     const int startingCoins = 30;
     int coins = startingCoins;
-    int coinsCollected = 0;
     bool wasMouseDown = false;   // To detect a fresh mouse click
     bool selectedLanes[3] = {false, false, false};
     bool wasPlayerKeyDown = false;
@@ -901,8 +900,8 @@ int main() {
         }
 
         int hoveredCard = -1;
-        bool rangedUnlocked = coinsCollected >= 20;
-        bool defenseUnlocked = coinsCollected >= 30;
+        bool rangedUnlocked = currentWave >= 2;
+        bool defenseUnlocked = currentWave >= 2;
         if (!isPaused && !isGameOver && !hasWon && y >= 0.73f && y <= 0.92f) {
             if (x >= -0.75f && x <= -0.55f && coins >= 10) {
                 hoveredCard = 0;
@@ -941,7 +940,7 @@ int main() {
             drawText(vertices, "COST 20", -0.45f, 0.835f, 0.0035f, 1.0f, 1.0f, 1.0f);
         } else {
             addRectangle(vertices, -0.50f, 0.92f, -0.30f, 0.73f, 0.40f, 0.40f, 0.40f); // Locked card
-            drawText(vertices, rangedUnlocked ? "COST 20" : "LOCKED", -0.45f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
+            drawText(vertices, rangedUnlocked ? "COST 20" : "WAVE 2", -0.45f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
         }
         drawText(vertices, "RANGED", -0.44f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
 
@@ -954,7 +953,7 @@ int main() {
             drawText(vertices, "COST 30", -0.20f, 0.835f, 0.0035f, 1.0f, 1.0f, 1.0f);
         } else {
             addRectangle(vertices, -0.25f, 0.92f, -0.05f, 0.73f, 0.40f, 0.40f, 0.40f); // Locked card
-            drawText(vertices, defenseUnlocked ? "COST 30" : "LOCKED", -0.20f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
+            drawText(vertices, defenseUnlocked ? "COST 30" : "WAVE 2", -0.20f, 0.835f, 0.0035f, 0.75f, 0.75f, 0.75f);
         }
         drawText(vertices, "DEFENSE", -0.20f, 0.695f, 0.0035f, 1.0f, 1.0f, 1.0f); // Text just under the box
 
@@ -1013,7 +1012,6 @@ int main() {
 
             gameplayTicks = 0;
             coins = startingCoins;
-            coinsCollected = 0;
             selectedPlayerType = -1;
             placementLane = -1;
             selectedLanes[0] = false;
@@ -1077,6 +1075,8 @@ int main() {
             }
         }
 
+        rangedUnlocked = currentWave >= 2;
+        defenseUnlocked = currentWave >= 2;
         int playerToPlace = -1;
         bool isPlayerKeyDown = false;
         if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
@@ -1311,7 +1311,6 @@ int main() {
                             float dist = std::abs(players[p]->x - collectibles[i].x);
                             if (dist < 0.06f) {
                                 coins = coins + collectibles[i].value;
-                                coinsCollected += collectibles[i].value;
                                 collectibles[i].active = false;
                                 break;
                             }

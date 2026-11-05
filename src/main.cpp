@@ -206,6 +206,12 @@ struct Projectile {
     bool isLow = false;
 };
 
+struct Impact {
+    float x;
+    float y;
+    int ticks;
+};
+
 struct Collectible {
     float x;
     float y;
@@ -477,7 +483,7 @@ int main() {
 
     const char* playerAnimationFiles[3][4] = {
         {"Gangsters_2/Idle.png", "Gangsters_2/Run.png", "Gangsters_2/Jump.png", "Gangsters_2/Attack_1.png"},
-        {"Gangsters_1/Idle.png", "Gangsters_1/Run.png", "Gangsters_1/Jump.png", "Gangsters_1/Attack_1.png"},
+        {"Gangsters_1/Idle.png", "Gangsters_1/Run.png", "Gangsters_1/Jump.png", "Gangsters_1/Shot.png"},
         {"Gangsters_3/Idle.png", "Gangsters_3/Run.png", "Gangsters_3/Jump.png", "Gangsters_3/Attack.png"}
     };
     GLuint playerAnimationTextures[3][4] = {};
@@ -556,6 +562,7 @@ int main() {
 
     // Player, Projectiles, Enemies, Lane Selection, and UI Card setup
     std::vector<playerClass*> players;
+    std::vector<Impact> impacts;
     std::vector<Projectile> projectiles;
     std::vector<Projectile> enemyProjectiles;
     std::vector<Collectible> collectibles;
@@ -993,6 +1000,7 @@ int main() {
                 delete players[p];
             }
             players.clear();
+            impacts.clear();
             projectiles.clear();
             enemyProjectiles.clear();
             collectibles.clear();
@@ -1217,20 +1225,6 @@ int main() {
                 players[i]->updateJump();
             }
 
-            if (players[i]->playerType == playerClass::MELEE) {
-                for (size_t j = 0; j < enemies.size(); j++) {
-                    float dist = enemies[j].x - players[i]->x;
-                    if (enemies[j].active && enemies[j].lane == players[i]->lane &&
-                        dist >= 0.0f && dist <= contactDistance) {
-                        float punchY = players[i]->y + players[i]->yOffset;
-                        addRectangle(vertices, players[i]->x + 0.04f, punchY + 0.02f,
-                                               players[i]->x + 0.09f, punchY - 0.02f,
-                                               1.0f, 0.4f, 0.4f);
-                        break;
-                    }
-                }
-            }
-
             float drawY = players[i]->y + players[i]->yOffset;
             // Check if protected behind a defense player on the same lane
             bool protectedByDefense = hasDefenseInFront(players[i], players);
@@ -1272,6 +1266,7 @@ int main() {
                             float dist = std::abs(projectiles[i].x - enemies[j].x);
                             if (dist < 0.05f) {
                                 projectiles[i].active = false;
+                                impacts.push_back({projectiles[i].x, projectiles[i].y, 8});
                                 enemies[j].health = enemies[j].health - 1;
                                 if (enemies[j].health <= 0) {
                                     enemies[j].active = false;
@@ -1296,7 +1291,12 @@ int main() {
                 if (projectiles[i].active == true) {
                     addRectangle(vertices, projectiles[i].x - 0.02f, projectiles[i].y + 0.015f,
                                            projectiles[i].x + 0.02f, projectiles[i].y - 0.015f,
-                                           1.0f, 0.85f, 0.1f); // Yellow projectile bullet
+                                           0.9f, 0.50f, 0.05f);
+                    addRectangle(vertices, projectiles[i].x - 0.012f, projectiles[i].y + 0.006f,
+                                 projectiles[i].x + 0.014f, projectiles[i].y - 0.006f, 1, 1, 0.75f);
+                    addTriangle(vertices, projectiles[i].x + 0.014f, projectiles[i].y + 0.015f,
+                                projectiles[i].x + 0.03f, projectiles[i].y,
+                                projectiles[i].x + 0.014f, projectiles[i].y - 0.015f, 1, 0.85f, 0.1f);
                 }
             }
         }
@@ -1406,6 +1406,13 @@ int main() {
             }
         }
 
+        // Impacts advance on the same clock as combat.
+        if (!isPaused && !isGameOver && !hasWon) {
+            for (Impact& impact : impacts) --impact.ticks;
+            impacts.erase(std::remove_if(impacts.begin(), impacts.end(),
+                          [](const Impact& impact) { return impact.ticks <= 0; }), impacts.end());
+        }
+
         // Move and update enemy spears thrown horizontally at players
         for (size_t k = 0; k < enemyProjectiles.size(); k++) {
             if (enemyProjectiles[k].active == true) {
@@ -1434,6 +1441,7 @@ int main() {
                     }
                     if (targetPlayer != -1) {
                         enemyProjectiles[k].active = false;
+                        impacts.push_back({enemyProjectiles[k].x, enemyProjectiles[k].y, 8});
                         players[targetPlayer]->isProtected = hasDefenseInFront(players[targetPlayer], players);
                         players[targetPlayer]->takeDamage(1);
                     }
@@ -1584,6 +1592,8 @@ int main() {
                 melee_player* melee = static_cast<melee_player*>(players[i]);
                 if (melee->attackCooldown > 0) animation = 3;
             }
+            if (players[i]->playerType == playerClass::RANGED &&
+                static_cast<ranged_player*>(players[i])->attackAnimationTimer > 0) animation = 3;
             GLuint texture = playerAnimationTextures[type][animation];
             int frameCount = playerAnimationFrames[type][animation];
             if (!texture || frameCount == 0) continue;
@@ -1681,7 +1691,7 @@ int main() {
             glUseProgram(playerProgram);
             glUniform1f(damageLocation, 0.0f);
             for (size_t k = 0; k < enemyProjectiles.size(); k++) {
-                if (enemyProjectiles[k].active) {
+                if (enemyProjectiles[k].active && !enemyProjectiles[k].isLow) {
                     const float left = enemyProjectiles[k].x - 0.045f;
                     const float right = enemyProjectiles[k].x + 0.045f;
                     const float top = enemyProjectiles[k].y + 0.008f;
@@ -1709,14 +1719,54 @@ int main() {
             }
         }
 
-        std::vector<float> healthBars;
+        std::vector<float> characterOverlay;
+        for (const Projectile& shot : enemyProjectiles) {
+            if (!shot.active || !shot.isLow) continue;
+            addRectangle(characterOverlay, shot.x - 0.024f, shot.y + 0.012f,
+                         shot.x + 0.018f, shot.y - 0.012f, 0.05f, 0.55f, 0.9f);
+            addRectangle(characterOverlay, shot.x - 0.015f, shot.y + 0.005f,
+                         shot.x + 0.024f, shot.y - 0.005f, 0.75f, 1, 1);
+        }
+        for (const Impact& impact : impacts) {
+            float size = 0.008f + (8 - impact.ticks) * 0.003f;
+            addRectangle(characterOverlay, impact.x - size, impact.y + 0.006f,
+                         impact.x + size, impact.y - 0.006f, 1, 0.9f, 0.4f);
+            addRectangle(characterOverlay, impact.x - 0.004f, impact.y + size * 1.5f,
+                         impact.x + 0.004f, impact.y - size * 1.5f, 1, 1, 0.8f);
+        }
         for (playerClass* player : players) {
             if (player->health <= 0) continue;
+            float px = player->x;
+            float py = player->y + player->yOffset;
+            if (player->playerType == playerClass::DEFENSE) {
+                addRectangle(characterOverlay, px + 0.018f, py + 0.055f, px + 0.058f, py - 0.06f,
+                             0.10f, 0.18f, 0.24f);
+                addRectangle(characterOverlay, px + 0.023f, py + 0.045f, px + 0.053f, py - 0.048f,
+                             0.25f, 0.55f, 0.65f);
+                addRectangle(characterOverlay, px + 0.036f, py + 0.04f, px + 0.041f, py - 0.043f,
+                             0.75f, 0.95f, 1);
+            } else if (player->playerType == playerClass::MELEE) {
+                int cooldown = static_cast<melee_player*>(player)->attackCooldown;
+                float swing = cooldown > 35 ? (50 - cooldown) / 15.0f : 1.0f;
+                float tipX = px + 0.035f + swing * 0.06f;
+                float tipY = py + 0.075f - swing * 0.065f;
+                addTriangle(characterOverlay, px + 0.025f, py, tipX, tipY,
+                            tipX + 0.008f, tipY, 0.65f, 0.80f, 0.85f);
+                addTriangle(characterOverlay, px + 0.025f, py, tipX + 0.008f, tipY,
+                            px + 0.033f, py, 0.65f, 0.80f, 0.85f);
+                addRectangle(characterOverlay, px + 0.023f, py + 0.003f,
+                             px + 0.035f, py - 0.01f, 0.15f, 0.15f, 0.18f);
+            } else {
+                addRectangle(characterOverlay, px + 0.018f, py + 0.012f,
+                             px + 0.07f, py + 0.002f, 0.16f, 0.2f, 0.25f);
+                addRectangle(characterOverlay, px + 0.03f, py + 0.002f,
+                             px + 0.038f, py - 0.017f, 0.3f, 0.25f, 0.18f);
+            }
             float top = player->y + player->yOffset + 0.12f;
             float fraction = static_cast<float>(player->health) / player->maxHealth;
-            addRectangle(healthBars, player->x - 0.04f, top, player->x + 0.04f,
+            addRectangle(characterOverlay, player->x - 0.04f, top, player->x + 0.04f,
                          top - 0.012f, 0.6f, 0.1f, 0.1f);
-            addRectangle(healthBars, player->x - 0.04f, top,
+            addRectangle(characterOverlay, player->x - 0.04f, top,
                          player->x - 0.04f + 0.08f * fraction, top - 0.012f,
                          0.1f, 0.85f, 0.2f);
         }
@@ -1724,17 +1774,17 @@ int main() {
             if (!enemy.active) continue;
             float top = enemy.y + 0.14f;
             float fraction = static_cast<float>(enemy.health) / enemy.maxHealth;
-            addRectangle(healthBars, enemy.x - 0.04f, top, enemy.x + 0.04f,
+            addRectangle(characterOverlay, enemy.x - 0.04f, top, enemy.x + 0.04f,
                          top - 0.012f, 0.6f, 0.1f, 0.1f);
-            addRectangle(healthBars, enemy.x - 0.04f, top,
+            addRectangle(characterOverlay, enemy.x - 0.04f, top,
                          enemy.x - 0.04f + 0.08f * fraction, top - 0.012f,
                          0.1f, 0.85f, 0.2f);
         }
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, healthBars.size() * sizeof(float), healthBars.data(), GL_DYNAMIC_DRAW);
-        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(healthBars.size() / 6));
+        glBufferData(GL_ARRAY_BUFFER, characterOverlay.size() * sizeof(float), characterOverlay.data(), GL_DYNAMIC_DRAW);
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(characterOverlay.size() / 6));
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
 
         if (isPaused || isGameOver || hasWon) {

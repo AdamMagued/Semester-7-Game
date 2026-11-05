@@ -1319,11 +1319,17 @@ int main() {
                     }
                 }
 
-                // Simple yellow square for dropped coin
-                if (collectibles[i].active == true) {
-                    addRectangle(vertices, collectibles[i].x - 0.02f, collectibles[i].y + 0.02f,
-                                           collectibles[i].x + 0.02f, collectibles[i].y - 0.02f,
-                                           1.0f, 0.85f, 0.1f);
+                if (collectibles[i].active) {
+                    float cx = collectibles[i].x;
+                    float cy = collectibles[i].y;
+                    addRectangle(vertices, cx - 0.016f, cy + 0.025f, cx + 0.016f, cy - 0.025f,
+                                 0.65f, 0.32f, 0.04f);
+                    addRectangle(vertices, cx - 0.022f, cy + 0.015f, cx + 0.022f, cy - 0.015f,
+                                 0.65f, 0.32f, 0.04f);
+                    addRectangle(vertices, cx - 0.012f, cy + 0.019f, cx + 0.012f, cy - 0.019f,
+                                 1.0f, 0.78f, 0.12f);
+                    addRectangle(vertices, cx - 0.005f, cy + 0.012f, cx + 0.002f, cy - 0.012f,
+                                 1.0f, 0.97f, 0.65f);
                 }
             }
         }

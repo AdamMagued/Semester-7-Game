@@ -1359,18 +1359,12 @@ int main() {
                         players[blockingPlayer]->takeDamage(enemies[j].damage);
                     }
 
-                    int animCycle = (enemies[j].attackTimer % rangedCycleFrames) * 300 / rangedCycleFrames;
-
-                    // Ranged enemies stop to throw. Melee enemies keep advancing.
-                    if (enemies[j].type == HARD || animCycle < 150) {
-                        if (blockingPlayer == -1) {
-                            enemies[j].moveLeft();
-                            if (enemies[j].x <= -0.80f) {
-                                isGameOver = true;
-                            }
-                        }
-                    } else if (enemies[j].attackTimer % rangedCycleFrames == rangedCycleFrames * 240 / 300) {
-                        // Frame 5 release: throw spear straight horizontally down the lane!
+                    if (blockingPlayer == -1) {
+                        enemies[j].moveLeft();
+                        if (enemies[j].x <= -0.80f) isGameOver = true;
+                    }
+                    if (!isGameOver && enemies[j].type != HARD &&
+                        enemies[j].attackTimer % rangedCycleFrames == 0) {
                         Projectile spear;
                         spear.x = enemies[j].x;
                         spear.y = enemies[j].y;
@@ -1382,23 +1376,6 @@ int main() {
                         spear.speed = 0.0075f;
                         spear.active = true;
                         enemyProjectiles.push_back(spear);
-                    }
-                }
-
-                int animCycle = (enemies[j].attackTimer % rangedCycleFrames) * 300 / rangedCycleFrames;
-                if (enemies[j].type != HARD && animCycle >= 190 && animCycle < 240) {
-                    // Equation from Frame 4
-                    drawText(vertices, "D=U*T", enemies[j].x - 0.10f, enemies[j].y + 0.13f, 0.003f, 1.0f, 1.0f, 0.2f);
-
-                    // Straight horizontal aiming line dots extending forward from spear
-                    for (float t = 0.0f; t <= 1.0f; t += 0.10f) {
-                        float aimX = enemies[j].x - 0.05f - t * 0.25f;
-                        float aimY = enemies[j].y;
-                        if (enemies[j].type == MEDIUM) {
-                            aimY = enemies[j].y - 0.05f;
-                        }
-                        addRectangle(vertices, aimX - 0.002f, aimY + 0.002f, aimX + 0.002f, aimY - 0.002f,
-                                               1.0f, 0.9f, 0.3f);
                     }
                 }
 
@@ -1623,12 +1600,14 @@ int main() {
         // Draw animated enemy textured quads
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active) {
-                int animCycle = (enemies[j].attackTimer % rangedCycleFrames) * 300 / rangedCycleFrames;
+                int shotFrame = enemies[j].attackTimer % rangedCycleFrames;
+                bool firing = enemies[j].type != HARD &&
+                              enemies[j].attackTimer >= rangedCycleFrames && shotFrame < 30;
                 bool useAdventurer = enemies[j].type == MEDIUM;
                 bool useMech = enemies[j].type == HARD && mechWalkTexture && mechAttackTexture;
-                int animation = (enemies[j].type != HARD && animCycle >= 150) ? 2 : 1;
+                int animation = firing ? 2 : 1;
                 int frameCount[] = {2, 8, 5};
-                int frame = (enemies[j].attackTimer / 8) % frameCount[animation];
+                int frame = firing ? shotFrame / 6 : (enemies[j].attackTimer / 8) % frameCount[animation];
                 GLuint enemyTexture = 0;
                 float u0, u1;
                 float quadLeft = enemies[j].x - 0.07f;
@@ -1656,9 +1635,9 @@ int main() {
                     u0 = static_cast<float>(frame) / frameCount[animation];
                     u1 = static_cast<float>(frame + 1) / frameCount[animation];
                 } else {
-                    int oldFrame = enemies[j].type == HARD || animCycle < 150
-                        ? (enemies[j].attackTimer / 50) % 3 == 2 ? 6 : (enemies[j].attackTimer / 50) % 3
-                        : animCycle < 190 ? 2 : animCycle < 240 ? 3 : animCycle < 270 ? 4 : 5;
+                    int oldFrame = (enemies[j].attackTimer / 50) % 3;
+                    if (oldFrame == 2) oldFrame = 6;
+                    if (firing) oldFrame = shotFrame < 15 ? 4 : 5;
                     enemyTexture = originalEnemyTextures[oldFrame];
                     u0 = 0.0f;
                     u1 = 1.0f;

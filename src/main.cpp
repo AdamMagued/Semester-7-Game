@@ -1232,15 +1232,6 @@ int main() {
             }
 
             float drawY = players[i]->y + players[i]->yOffset;
-            // Health bar above player
-            float px = players[i]->x;
-            float barY = drawY + 0.080f;
-            addRectangle(vertices, px - 0.04f, barY + 0.006f, px + 0.04f, barY - 0.006f, 0.35f, 0.1f, 0.1f);
-            float hpRatio = (float)players[i]->health / (float)players[i]->maxHealth;
-            if (hpRatio < 0.0f) hpRatio = 0.0f;
-            if (hpRatio > 1.0f) hpRatio = 1.0f;
-            addRectangle(vertices, px - 0.04f, barY + 0.006f, px - 0.04f + 0.08f * hpRatio, barY - 0.006f, 0.2f, 0.85f, 0.2f);
-
             // Check if protected behind a defense player on the same lane
             bool protectedByDefense = hasDefenseInFront(players[i], players);
             players[i]->isProtected = protectedByDefense;
@@ -1405,16 +1396,7 @@ int main() {
                     }
                 }
 
-                // Enemy Health bar above head (red background, green remaining)
-                float healthRatio = (float)enemies[j].health / (float)enemies[j].maxHealth;
-                if (healthRatio < 0.0f) healthRatio = 0.0f;
-                if (healthRatio > 1.0f) healthRatio = 1.0f;
-                addRectangle(vertices, enemies[j].x - 0.04f, enemies[j].y + 0.09f,
-                                       enemies[j].x + 0.04f, enemies[j].y + 0.08f,
-                                       0.6f, 0.1f, 0.1f);
-                addRectangle(vertices, enemies[j].x - 0.04f, enemies[j].y + 0.09f,
-                                       enemies[j].x - 0.04f + 0.08f * healthRatio, enemies[j].y + 0.08f,
-                                       0.1f, 0.85f, 0.2f);
+
             }
         }
 
@@ -1720,6 +1702,34 @@ int main() {
                 }
             }
         }
+
+        std::vector<float> healthBars;
+        for (playerClass* player : players) {
+            if (player->health <= 0) continue;
+            float top = player->y + player->yOffset + 0.12f;
+            float fraction = static_cast<float>(player->health) / player->maxHealth;
+            addRectangle(healthBars, player->x - 0.04f, top, player->x + 0.04f,
+                         top - 0.012f, 0.6f, 0.1f, 0.1f);
+            addRectangle(healthBars, player->x - 0.04f, top,
+                         player->x - 0.04f + 0.08f * fraction, top - 0.012f,
+                         0.1f, 0.85f, 0.2f);
+        }
+        for (const Enemy& enemy : enemies) {
+            if (!enemy.active) continue;
+            float top = enemy.y + 0.14f;
+            float fraction = static_cast<float>(enemy.health) / enemy.maxHealth;
+            addRectangle(healthBars, enemy.x - 0.04f, top, enemy.x + 0.04f,
+                         top - 0.012f, 0.6f, 0.1f, 0.1f);
+            addRectangle(healthBars, enemy.x - 0.04f, top,
+                         enemy.x - 0.04f + 0.08f * fraction, top - 0.012f,
+                         0.1f, 0.85f, 0.2f);
+        }
+        glUseProgram(shaderProgram);
+        glBindVertexArray(VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, healthBars.size() * sizeof(float), healthBars.data(), GL_DYNAMIC_DRAW);
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(healthBars.size() / 6));
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
 
         if (isPaused || isGameOver || hasWon) {
             glUseProgram(shaderProgram);

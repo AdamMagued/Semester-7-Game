@@ -570,6 +570,7 @@ int main() {
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
     const int enemiesPerWave[3] = {3, 5, 10};
     const int framesBetweenSpawns[3] = {360, 240, 240};
+    const int rangedCycleFrames = 450;
     int currentWave = 1;
     int enemiesSpawned = 0;
     int spawnTimer = 0;
@@ -1358,7 +1359,7 @@ int main() {
                         players[blockingPlayer]->takeDamage(enemies[j].damage);
                     }
 
-                    int animCycle = enemies[j].attackTimer % 300;
+                    int animCycle = (enemies[j].attackTimer % rangedCycleFrames) * 300 / rangedCycleFrames;
 
                     // Ranged enemies stop to throw. Melee enemies keep advancing.
                     if (enemies[j].type == HARD || animCycle < 150) {
@@ -1368,7 +1369,7 @@ int main() {
                                 isGameOver = true;
                             }
                         }
-                    } else if (animCycle == 240) {
+                    } else if (enemies[j].attackTimer % rangedCycleFrames == rangedCycleFrames * 240 / 300) {
                         // Frame 5 release: throw spear straight horizontally down the lane!
                         Projectile spear;
                         spear.x = enemies[j].x;
@@ -1384,7 +1385,7 @@ int main() {
                     }
                 }
 
-                int animCycle = enemies[j].attackTimer % 300;
+                int animCycle = (enemies[j].attackTimer % rangedCycleFrames) * 300 / rangedCycleFrames;
                 if (enemies[j].type != HARD && animCycle >= 190 && animCycle < 240) {
                     // Equation from Frame 4
                     drawText(vertices, "D=U*T", enemies[j].x - 0.10f, enemies[j].y + 0.13f, 0.003f, 1.0f, 1.0f, 0.2f);
@@ -1622,7 +1623,7 @@ int main() {
         // Draw animated enemy textured quads
         for (size_t j = 0; j < enemies.size(); j++) {
             if (enemies[j].active) {
-                int animCycle = enemies[j].attackTimer % 300;
+                int animCycle = (enemies[j].attackTimer % rangedCycleFrames) * 300 / rangedCycleFrames;
                 bool useAdventurer = enemies[j].type == MEDIUM;
                 bool useMech = enemies[j].type == HARD && mechWalkTexture && mechAttackTexture;
                 int animation = (enemies[j].type != HARD && animCycle >= 150) ? 2 : 1;

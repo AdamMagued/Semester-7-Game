@@ -5,7 +5,7 @@ class ranged_player : public playerClass {
     public:
     int shootTimer = 0;
     int attackAnimationTimer = 0;
-    int shootCooldown = 80; // Fires projectile every ~1.3 seconds
+    int shootCooldown = 120; // Fires once every two seconds
 
     ranged_player(){
         health = 5;

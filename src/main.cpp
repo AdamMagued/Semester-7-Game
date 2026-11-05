@@ -1,6 +1,4 @@
-#include "CutsceneData.h"
 #include <algorithm>
-#include <cctype>
 #include <iterator>
 #define GLAD_GL_IMPLEMENTATION
 #include <glad/gl.h>
@@ -15,6 +13,7 @@
 #include "game/entities/players/defense/defense_player.h"
 #include "game/entities/players/ranged/ranged_player.h"
 #include "game/entities/enemies/Enemy.h"
+#include "game/conversation_cutscene.h"
 
 bool hasActiveEnemies(const std::vector<Enemy>& enemies) {
     for (size_t i = 0; i < enemies.size(); i++) {
@@ -346,19 +345,8 @@ in vec2 uv;
 out vec4 FragColor;
 uniform sampler2D playerImage;
 uniform float damageAmount;
-uniform int inactiveCount;
-uniform vec4 inactiveBubbles[2];
 void main() {
     vec4 color = texture(playerImage, uv);
-    vec2 point = vec2(uv.x * 420.0, (1.0 - uv.y) * 236.0);
-    for (int i = 0; i < inactiveCount; ++i) {
-        vec4 bubble = inactiveBubbles[i];
-        if (all(greaterThanEqual(point, bubble.xy)) && all(lessThan(point, bubble.zw))) {
-            // The bubble ink is brighter than the scene behind it.
-            float ink = max(color.r, color.b);
-            color.rgb *= 1.0 - smoothstep(0.33, 0.47, ink);
-        }
-    }
     color.rgb = mix(color.rgb, vec3(1.0, 0.0, 0.0), damageAmount);
     FragColor = color;
 }
@@ -465,8 +453,6 @@ int main() {
     glLinkProgram(playerProgram);
     glDeleteShader(playerVS);
     glDeleteShader(playerFS);
-    GLint inactiveBubblesLocation = glGetUniformLocation(playerProgram, "inactiveBubbles[0]");
-    GLint inactiveCountLocation = glGetUniformLocation(playerProgram, "inactiveCount");
     GLint damageLocation = glGetUniformLocation(playerProgram, "damageAmount");
 
     stbi_set_flip_vertically_on_load(true);
@@ -582,6 +568,8 @@ int main() {
     bool hasWon = false;
     bool isMainMenu = true;
     bool restartRequested = false;
+    bool showingConversation = false;
+    ConversationCutscene conversation;
     bool wasEnterDown = false;
     const float contactDistance = 0.11f;
 
@@ -623,15 +611,7 @@ int main() {
     const double updateStep = 1.0 / 60.0;
     double lastFrameTime = glfwGetTime();
     double accumulatedTime = updateStep;
-
-    GLuint cutsceneTextures[std::size(cutsceneImages)] = {};
-    int cutsceneLine = -1;
-    double lineStarted = 0.0;
-    double sceneStarted = 0.0;
-    bool lineRevealed = false;
-    bool wasSpaceDown = false;
-
-    // --- Render loop ---
+// --- Render loop ---
     while (!glfwWindowShouldClose(window)) {
         double currentFrameTime = glfwGetTime();
         double elapsedTime = currentFrameTime - lastFrameTime;
@@ -682,156 +662,6 @@ int main() {
             }
         }
         wasF11Down = f11Down;
-        bool spaceDown = glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS;
-        bool spacePressed = spaceDown && !wasSpaceDown;
-        wasSpaceDown = spaceDown;
-
-        if (cutsceneLine >= 0) {
-            bool skipHovered = x >= 0.70f && x <= 0.98f &&
-                               y >= -0.94f && y <= -0.75f;
-            if (mouseClicked && skipHovered) {
-                cutsceneLine = -1;
-                restartRequested = true;
-                accumulatedTime = 0.0;
-                continue;
-            }
-
-            std::string line = cutsceneLines[cutsceneLine].text;
-            double lineTime = currentFrameTime - lineStarted;
-            size_t visible = std::min(line.size(), static_cast<size_t>(lineTime * 38));
-            bool autoAdvance = lineTime >= line.size() / 38.0 + 2.5;
-            if ((mouseClicked && !skipHovered) || enterPressed || spacePressed || autoAdvance) {
-                if (!lineRevealed && visible < line.size()) {
-                    lineRevealed = true;
-                } else {
-                    ++cutsceneLine;
-                    if (cutsceneLine == std::size(cutsceneLines)) {
-                        cutsceneLine = -1;
-                        restartRequested = true;
-                        accumulatedTime = 0.0;
-                        continue;
-                    }
-                    if (cutsceneLines[cutsceneLine].image != cutsceneLines[cutsceneLine - 1].image) {
-                        sceneStarted = currentFrameTime;
-                    }
-                    lineStarted = currentFrameTime;
-                    lineTime = 0.0;
-                    lineRevealed = false;
-                    visible = 0;
-                    line = cutsceneLines[cutsceneLine].text;
-                }
-            }
-            if (lineRevealed) visible = line.size();
-
-            const CutsceneLine& page = cutsceneLines[cutsceneLine];
-            int image = page.image;
-            int width, height;
-            glfwGetFramebufferSize(window, &width, &height);
-            int viewWidth = std::min(width, height * 16 / 9);
-            int viewHeight = std::min(height, width * 9 / 16);
-            glViewport((width - viewWidth) / 2, (height - viewHeight) / 2, viewWidth, viewHeight);
-            glClearColor(0, 0, 0, 1);
-            glClear(GL_COLOR_BUFFER_BIT);
-
-            const float quad[] = {
-                -1,1,0,1, 1,1,1,1, 1,-1,1,0,
-                -1,1,0,1, 1,-1,1,0, -1,-1,0,0
-            };
-            glUseProgram(playerProgram);
-            glUniform1f(damageLocation, 0.0f);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, cutsceneTextures[image]);
-            glBindVertexArray(playerVAO);
-            glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
-            float fade = std::min(1.0, (currentFrameTime - sceneStarted) / 0.25);
-            glEnable(GL_BLEND);
-            glBlendColor(0, 0, 0, fade);
-            glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
-            // Find the inactive bubble outlines in artwork coordinates.
-            GLfloat inactiveBubbles[8] = {};
-            int inactiveCount = 0;
-            auto hideBubble = [&](int left, int top, int right, int bottom) {
-                int offset = inactiveCount++ * 4;
-                inactiveBubbles[offset] = left;
-                inactiveBubbles[offset + 1] = top;
-                inactiveBubbles[offset + 2] = right;
-                inactiveBubbles[offset + 3] = bottom;
-            };
-            if (image == 0) {
-                if (page.left < 200) hideBubble(234, 84, 322, 144);
-                else hideBubble(78, 61, 178, 126);
-            } else if (image == 1) {
-                hideBubble(4, 10, 131, 83);
-            } else if (image == 2) {
-                hideBubble(277, 9, 413, 81);
-            } else if (image == 5) {
-                hideBubble(299, 19, 361, 59);
-            } else if (image == 6) {
-                if (page.left < 200) hideBubble(263, 46, 376, 116);
-                else hideBubble(65, 49, 160, 120);
-            } else if (image == 8) {
-                hideBubble(41, 53, 104, 99);
-                if (page.left < 300) hideBubble(323, 52, 384, 100);
-                else hideBubble(121, 17, 285, 116);
-            } else if (image == 9) {
-                if (page.left < 200) hideBubble(212, 9, 414, 127);
-                else hideBubble(5, 9, 201, 127);
-            }
-            glUniform4fv(inactiveBubblesLocation, inactiveCount, inactiveBubbles);
-            glUniform1i(inactiveCountLocation, inactiveCount);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-            glUniform1i(inactiveCountLocation, 0);
-
-            std::vector<float> dialogue;
-            std::string speaker = std::string(page.speaker) + ":";
-            for (char& c : speaker) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-            for (char& c : line) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-
-            float boxWidth = page.right - page.left;
-            float boxHeight = page.bottom - page.top;
-            size_t wrap = line.size();
-            if (line.size() > 22) {
-                size_t split = line.rfind(' ', line.size() / 2);
-                if (split != std::string::npos) wrap = split;
-            }
-            size_t longest = std::max(speaker.size(), wrap);
-            if (wrap < line.size()) longest = std::max(longest, line.size() - wrap - 1);
-            float pixel = std::min({1.35f, boxWidth / (4 * longest),
-                                    boxHeight / (wrap < line.size() ? 19 : 12)});
-            float textTop = 1.0f - 2.0f * page.top / 236.0f;
-            float pixelSize = 2.0f * pixel / 236.0f;
-            float ink = page.lightBox ? 0.08f : 1.0f;
-            drawText(dialogue, speaker, 0, textTop, pixelSize, ink, ink, ink);
-            drawText(dialogue, line.substr(0, std::min(wrap, visible)), 0,
-                     textTop - 7 * pixelSize, pixelSize, ink, ink, ink);
-            if (visible > wrap + 1) {
-                drawText(dialogue, line.substr(wrap + 1, visible - wrap - 1), 0,
-                         textTop - 14 * pixelSize, pixelSize, ink, ink, ink);
-            }
-            float textLeft = 2.0f * page.left / 420.0f - 1.0f;
-            for (size_t i = 0; i < dialogue.size(); i += 6) {
-                dialogue[i] = textLeft + dialogue[i] * 236.0f / 420.0f;
-            }
-            addRectangle(dialogue, 0.70f, -0.75f, 0.98f, -0.94f,
-                         0.12f, 0.85f, 1.0f);
-            addRectangle(dialogue, 0.71f, -0.76f, 0.97f, -0.93f,
-                         0.015f, 0.07f, 0.13f);
-            drawText(dialogue, "SKIP CUTSCENE", 0.715f, -0.80f, 0.0048f,
-                     0.45f, 0.92f, 1.0f);
-            glUseProgram(shaderProgram);
-            glBindVertexArray(VAO);
-            glBindBuffer(GL_ARRAY_BUFFER, VBO);
-            glBufferData(GL_ARRAY_BUFFER, dialogue.size() * sizeof(float), dialogue.data(), GL_DYNAMIC_DRAW);
-            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(dialogue.size() / 6));
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            drawMousePointer(window, shaderProgram, VAO, VBO);
-            glfwSwapBuffers(window);
-            glViewport(0, 0, width, height);
-            glfwPollEvents();
-            accumulatedTime = 0.0;
-            continue;
-        }
 
         if ((isPaused || isGameOver || hasWon) && glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
             isMainMenu = true;
@@ -844,19 +674,8 @@ int main() {
             drawText(menuVertices, "ENTER TO START", -0.25f, -0.35f, 0.005f);
             if (startClicked || enterPressed) {
                 isMainMenu = false;
-                bool loaded = true;
-                for (size_t i = 0; i < std::size(cutsceneImages); ++i) {
-                    if (!cutsceneTextures[i]) cutsceneTextures[i] = loadTexture(cutsceneImages[i]);
-                    if (!cutsceneTextures[i]) loaded = false;
-                }
-                if (loaded) {
-                    cutsceneLine = 0;
-                    lineStarted = glfwGetTime();
-                    sceneStarted = lineStarted;
-                    lineRevealed = false;
-                } else {
-                    restartRequested = true;
-                }
+                conversation.start(currentFrameTime);
+                showingConversation = true;
             }
             if (exitClicked) {
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -887,6 +706,102 @@ int main() {
             drawMousePointer(window, shaderProgram, VAO, VBO);
             glfwSwapBuffers(window);
             glfwPollEvents();
+            continue;
+        }
+
+        if (showingConversation) {
+            ConversationCutscene::Pose pose = conversation.update(currentFrameTime);
+            if (!pose.active) {
+                showingConversation = false;
+                restartRequested = true;
+                accumulatedTime = 0.0;
+                lastFrameTime = currentFrameTime;
+                continue;
+            }
+
+            int framebufferWidth, framebufferHeight;
+            glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+            glViewport(0, 0, framebufferWidth, framebufferHeight);
+            glClearColor(0.035f, 0.055f, 0.08f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            const float backgroundQuad[] = {
+                -1,1,0,1, 1,1,1,1, 1,-1,1,0,
+                -1,1,0,1, 1,-1,1,0, -1,-1,0,0
+            };
+            if (backgroundTexture) {
+                glUseProgram(playerProgram);
+                glUniform1f(damageLocation, 0.0f);
+                glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, backgroundTexture);
+                glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(backgroundQuad), backgroundQuad);
+                glBindVertexArray(playerVAO);
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+            }
+
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
+            glUseProgram(shaderProgram);
+            glBindVertexArray(VAO);
+            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size() / 6));
+
+            auto drawConversationSprite = [&](GLuint texture, int frame, int frameCount,
+                                              float centerX, float centerY,
+                                              float halfWidth, float halfHeight) {
+                if (!texture || frameCount <= 0) return;
+                float u0 = static_cast<float>(frame) / frameCount;
+                float u1 = static_cast<float>(frame + 1) / frameCount;
+                const float quad[] = {
+                    centerX - halfWidth, centerY + halfHeight, u0, 1.0f,
+                    centerX + halfWidth, centerY + halfHeight, u1, 1.0f,
+                    centerX + halfWidth, centerY - halfHeight, u1, 0.0f,
+                    centerX - halfWidth, centerY + halfHeight, u0, 1.0f,
+                    centerX + halfWidth, centerY - halfHeight, u1, 0.0f,
+                    centerX - halfWidth, centerY - halfHeight, u0, 0.0f
+                };
+                glUseProgram(playerProgram);
+                glUniform1f(damageLocation, 0.0f);
+                glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, texture);
+                glBindBuffer(GL_ARRAY_BUFFER, playerVBO);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
+                glBindVertexArray(playerVAO);
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+            };
+
+            int playerAnimation = pose.running ? 1 : 0;
+            int playerFrameCount = playerAnimationFrames[0][playerAnimation];
+            int playerFrame = playerFrameCount > 0
+                ? static_cast<int>(currentFrameTime * (pose.running ? 8.0 : 4.0)) % playerFrameCount
+                : 0;
+            drawConversationSprite(playerAnimationTextures[0][playerAnimation], playerFrame,
+                                  playerFrameCount, pose.playerX, pose.playerY, 0.055f, 0.085f);
+
+            int enemyAnimation = pose.running ? 1 : 0;
+            int enemyFrameCount = enemyAnimation == 1 ? 8 : 2;
+            int enemyFrame = static_cast<int>(currentFrameTime * (pose.running ? 8.0 : 4.0)) % enemyFrameCount;
+            drawConversationSprite(robotEnemyTextures[enemyAnimation], enemyFrame, enemyFrameCount,
+                                  pose.enemyX, pose.enemyY, 0.07f, 0.105f);
+
+            if (!pose.running) {
+                std::vector<float> dialogue;
+                addRectangle(dialogue, -0.92f, -0.76f, 0.92f, -0.95f, 0.015f, 0.025f, 0.04f);
+                drawText(dialogue, conversation.textForTurn(pose.turn), -0.86f,
+                         pose.dialogueY, 0.0035f, 0.92f, 0.94f, 1.0f);
+                glUseProgram(shaderProgram);
+                glBindBuffer(GL_ARRAY_BUFFER, VBO);
+                glBufferData(GL_ARRAY_BUFFER, dialogue.size() * sizeof(float), dialogue.data(), GL_DYNAMIC_DRAW);
+                glBindVertexArray(VAO);
+                glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(dialogue.size() / 6));
+            }
+
+            glfwSwapBuffers(window);
+            glfwPollEvents();
+            accumulatedTime = 0.0;
+            lastFrameTime = currentFrameTime;
             continue;
         }
 
@@ -1735,7 +1650,6 @@ int main() {
     if (endingBackgroundTexture) glDeleteTextures(1, &endingBackgroundTexture);
     for (int type = 0; type < 3; ++type)
         glDeleteTextures(4, playerAnimationTextures[type]);
-    glDeleteTextures(std::size(cutsceneTextures), cutsceneTextures);
     if (backgroundTexture) glDeleteTextures(1, &backgroundTexture);
     glDeleteTextures(3, robotEnemyTextures);
     glDeleteTextures(7, originalEnemyTextures);

@@ -156,15 +156,15 @@ void addFacilityDetails(std::vector<float>& vertices) {
     addRectangle(vertices, 0.615f, -0.682f, 0.725f, -0.69f, 0.85f, 0.60f, 0.15f);
 }
 
-void addLaneOutline(std::vector<float>& vertices, float top, float bottom) {
-    const float cyanR = 0.18f;
-    const float cyanG = 0.88f;
-    const float cyanB = 1.0f;
-    const float thickness = 0.008f;
-    addRectangle(vertices, -0.80f, top, 0.98f, top - thickness, cyanR, cyanG, cyanB);
-    addRectangle(vertices, -0.80f, bottom + thickness, 0.98f, bottom, cyanR, cyanG, cyanB);
-    addRectangle(vertices, -0.80f, top, -0.80f + thickness, bottom, cyanR, cyanG, cyanB);
-    addRectangle(vertices, 0.98f - thickness, top, 0.98f, bottom, cyanR, cyanG, cyanB);
+void addLaneOutline(std::vector<float>& vertices, float top, float bottom, bool selected) {
+    const float red = selected ? 1.0f : 0.18f;
+    const float green = selected ? 0.78f : 0.88f;
+    const float blue = selected ? 0.12f : 1.0f;
+    const float thickness = selected ? 0.014f : 0.008f;
+    addRectangle(vertices, -0.80f, top, 0.98f, top - thickness, red, green, blue);
+    addRectangle(vertices, -0.80f, bottom + thickness, 0.98f, bottom, red, green, blue);
+    addRectangle(vertices, -0.80f, top, -0.80f + thickness, bottom, red, green, blue);
+    addRectangle(vertices, 0.98f - thickness, top, 0.98f, bottom, red, green, blue);
 }
 
 void drawMousePointer(GLFWwindow* window, GLuint shader, GLuint vao, GLuint vbo) {
@@ -970,16 +970,6 @@ int main() {
             else if (y < -0.28f && y >= -0.82f) hoveredLane = 2;
         }
 
-        if (!isPaused && !isGameOver && !hasWon && hoveredLane >= 0) {
-            const float laneTops[] = {0.62f, 0.20f, -0.28f};
-            const float laneBottoms[] = {0.20f, -0.28f, -0.82f};
-            addLaneOutline(vertices, laneTops[hoveredLane], laneBottoms[hoveredLane]);
-        }
-
-        if (selectedLanes[0]) addLaneOutline(vertices, 0.62f, 0.20f);
-        if (selectedLanes[1]) addLaneOutline(vertices, 0.20f, -0.28f);
-        if (selectedLanes[2]) addLaneOutline(vertices, -0.28f, -0.82f);
-
         // Check Escape key for pause
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
             if (!wasEscDown) {
@@ -1574,6 +1564,34 @@ int main() {
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(sceneVertexCount / 6));
+
+        std::vector<float> laneFills;
+        std::vector<float> laneBorders;
+        const float laneTops[] = {0.62f, 0.20f, -0.28f};
+        const float laneBottoms[] = {0.20f, -0.28f, -0.82f};
+        for (int lane = 0; lane < 3; ++lane) {
+            bool selected = selectedLanes[lane];
+            bool hovered = lane == hoveredLane && !isPaused && !isGameOver && !hasWon;
+            if (!selected && !hovered) continue;
+            float red = selected ? 1.0f : 0.18f;
+            float green = selected ? 0.78f : 0.88f;
+            float blue = selected ? 0.12f : 1.0f;
+            addRectangle(laneFills, -0.80f, laneTops[lane], 0.98f, laneBottoms[lane],
+                         red, green, blue);
+            addLaneOutline(laneBorders, laneTops[lane], laneBottoms[lane], selected);
+            if (selected) {
+                drawText(laneBorders, "SELECTED", -0.76f, laneTops[lane] - 0.035f,
+                         0.004f, red, green, blue);
+            }
+        }
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, laneFills.size() * sizeof(float), laneFills.data(), GL_DYNAMIC_DRAW);
+        glBlendColor(0, 0, 0, 0.22f);
+        glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(laneFills.size() / 6));
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBufferData(GL_ARRAY_BUFFER, laneBorders.size() * sizeof(float), laneBorders.data(), GL_DYNAMIC_DRAW);
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(laneBorders.size() / 6));
 
         for (size_t i = 0; i < players.size(); i++) {
             if (players[i]->health <= 0) continue;

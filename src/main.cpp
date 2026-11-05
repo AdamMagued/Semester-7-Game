@@ -682,6 +682,8 @@ int main() {
             }
         }
         wasF11Down = f11Down;
+        glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+        glViewport(0, 0, framebufferWidth, framebufferHeight);
         bool spaceDown = glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS;
         bool spacePressed = spaceDown && !wasSpaceDown;
         wasSpaceDown = spaceDown;
@@ -958,6 +960,12 @@ int main() {
             if (y <= 0.62f && y >= 0.20f) hoveredLane = 0;
             else if (y < 0.20f && y >= -0.28f) hoveredLane = 1;
             else if (y < -0.28f && y >= -0.82f) hoveredLane = 2;
+        }
+
+        if (!isPaused && !isGameOver && !hasWon && hoveredLane >= 0) {
+            const float laneTops[] = {0.62f, 0.20f, -0.28f};
+            const float laneBottoms[] = {0.20f, -0.28f, -0.82f};
+            addLaneOutline(vertices, laneTops[hoveredLane], laneBottoms[hoveredLane]);
         }
 
         if (selectedLanes[0]) addLaneOutline(vertices, 0.62f, 0.20f);

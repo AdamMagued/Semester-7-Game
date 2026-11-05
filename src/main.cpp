@@ -568,8 +568,8 @@ int main() {
     std::vector<Collectible> collectibles;
     std::vector<Enemy> enemies;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
-    const int enemiesPerWave[3] = {10, 10, 10};
-    const int framesBetweenSpawns = 180;
+    const int enemiesPerWave[3] = {3, 5, 10};
+    const int framesBetweenSpawns[3] = {360, 240, 240};
     int currentWave = 1;
     int enemiesSpawned = 0;
     int spawnTimer = 0;
@@ -1070,7 +1070,7 @@ int main() {
                     int lane = std::rand() % 3;
                     enemies.push_back(Enemy(lane, type));
                     enemiesSpawned = enemiesSpawned + 1;
-                    spawnTimer = framesBetweenSpawns;
+                    spawnTimer = framesBetweenSpawns[currentWave - 1];
                 }
             }
         }

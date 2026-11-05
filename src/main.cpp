@@ -578,6 +578,7 @@ int main() {
 
     int selectedPlayerType = -1;
     int placementLane = -1;
+    bool placingDefense = false;
     const int startingCoins = 30;
     int coins = startingCoins;
     bool wasMouseDown = false;   // To detect a fresh mouse click
@@ -916,6 +917,7 @@ int main() {
             (selectedPlayerType == 1 && (!rangedUnlocked || coins < 20)) ||
             (selectedPlayerType == 2 && (!defenseUnlocked || coins < 30))) {
             selectedPlayerType = -1;
+            placingDefense = false;
         }
 
         // --- Draw UI Cards in top-left ---
@@ -1005,6 +1007,7 @@ int main() {
             coins = startingCoins;
             selectedPlayerType = -1;
             placementLane = -1;
+            placingDefense = false;
             selectedLanes[0] = false;
             selectedLanes[1] = false;
             selectedLanes[2] = false;
@@ -1089,6 +1092,13 @@ int main() {
         if (!isPaused && !isGameOver && !hasWon && mouseClicked) {
             if (hoveredCard != -1) {
                 playerToPlace = hoveredCard;
+            } else if (hoveredLane != -1 && placingDefense && defenseUnlocked && coins >= 30) {
+                defense_player* player = new defense_player();
+                player->setLane(hoveredLane);
+                player->x = std::clamp(x, -0.72f, 0.90f);
+                players.push_back(player);
+                coins -= 30;
+                placingDefense = false;
             } else if (hoveredLane != -1) {
                 selectedLanes[hoveredLane] = !selectedLanes[hoveredLane];
                 if (selectedLanes[hoveredLane]) {
@@ -1105,6 +1115,13 @@ int main() {
             }
         }
 
+        if (playerToPlace == 2 && defenseUnlocked && coins >= 30) {
+            placingDefense = !placingDefense;
+            selectedPlayerType = 2;
+        } else if (playerToPlace == 0 || playerToPlace == 1) {
+            placingDefense = false;
+        }
+
         if (placementLane != -1) {
             if (playerToPlace == 0 && coins >= 10) {
                 melee_player* p = new melee_player();
@@ -1118,15 +1135,12 @@ int main() {
                 players.push_back(p);
                 coins = coins - 20;
                 selectedPlayerType = 1;
-            } else if (playerToPlace == 2 && defenseUnlocked && coins >= 30) {
-                defense_player* p = new defense_player();
-                p->setLane(placementLane);
-                players.push_back(p);
-                coins = coins - 30;
-                selectedPlayerType = 2;
+
             }
         }
-        drawText(vertices, "SELECT LANE THEN CARD OR 1 2 3", -0.72f, -0.90f, 0.005f);
+        const char* placementHint = placingDefense ? "CLICK A LANE POSITION TO PLACE DEFENSE"
+                                                 : "SELECT LANE THEN CARD OR 1 2 3";
+        drawText(vertices, placementHint, -0.72f, -0.90f, 0.005f);
         drawText(vertices, "W OR UP: JUMP LOW SHOTS   S OR DOWN: DUCK HIGH SHOTS",
                  -0.72f, -0.96f, 0.0035f);
 

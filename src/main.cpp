@@ -1226,6 +1226,15 @@ int main() {
                     players[i]->move();
                 }
                 players[i]->updateJump();
+                float exitMargin = std::max(0.10f,
+                    0.15f * 88.0f / 104.0f * framebufferHeight / framebufferWidth);
+                if (players[i]->playerType != playerClass::DEFENSE &&
+                    players[i]->x > 1.0f + exitMargin) {
+                    delete players[i];
+                    players.erase(players.begin() + i);
+                    --i;
+                    continue;
+                }
             }
 
             float drawY = players[i]->y + players[i]->yOffset;

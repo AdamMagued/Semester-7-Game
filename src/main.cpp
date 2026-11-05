@@ -582,6 +582,7 @@ int main() {
     bool hasWon = false;
     bool isMainMenu = true;
     bool restartRequested = false;
+    int gameplayTicks = 0;
     bool wasEnterDown = false;
     const float contactDistance = 0.11f;
 
@@ -1002,6 +1003,7 @@ int main() {
             spawnTimer = 0;
             waveTransitionTimer = 0.0f;
 
+            gameplayTicks = 0;
             coins = startingCoins;
             coinsCollected = 0;
             selectedPlayerType = -1;
@@ -1480,6 +1482,7 @@ int main() {
                      0.36f, 0.69f, 0.0035f);
         }
 
+        if (!isPaused && !isGameOver && !hasWon) ++gameplayTicks;
         const size_t sceneVertexCount = vertices.size();
         if (hasWon) {
             addRectangle(vertices, -0.82f, 0.53f, 0.82f, 0.51f, 0.55f, 0.0f, 0.03f);
@@ -1560,7 +1563,7 @@ int main() {
             continue;
         }
         if (waveTransitionTimer > 0.0f) {
-            int shake = static_cast<int>(std::sin(glfwGetTime() * 70.0) * 9.0);
+            int shake = static_cast<int>(std::sin(gameplayTicks * 70.0 / 60.0) * 9.0);
             glViewport(shake, 0, framebufferWidth, framebufferHeight);
         }
 
@@ -1597,7 +1600,7 @@ int main() {
             int frameCount = playerAnimationFrames[type][animation];
             if (!texture || frameCount == 0) continue;
 
-            int frame = static_cast<int>(glfwGetTime() * 8.0) % frameCount;
+            int frame = (gameplayTicks * 8 / 60) % frameCount;
             float u0 = static_cast<float>(frame) / frameCount;
             float u1 = static_cast<float>(frame + 1) / frameCount;
             const float left = players[i]->x - 0.055f;

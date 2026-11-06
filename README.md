@@ -40,3 +40,16 @@ With the Visual Studio generator on Windows:
 - F11: toggle fullscreen and windowed mode.
 
 Players move and attack automatically. Defense players stay in place. Defeated enemies drop coins that players collect by touching them. A card is available only when you can afford its price.
+
+## Source files
+
+- `src/main.cpp`: window, input, waves, placement, menus and the main loop.
+- `src/game/Gameplay.cpp`: movement, attacks, damage and coins.
+- `src/game/entities/`: player and enemy data and their basic actions.
+- `src/game/Lanes.h`: lane positions shared by drawing and input.
+- `src/renderer/Drawing.cpp`: shapes, text, shaders and image loading.
+- `src/renderer/Sprites.cpp`: character and spear sprites.
+- `src/renderer/Objects.cpp`: coins, bullets and protection indicators.
+- `src/ui/Hud.cpp`: player cards and coin count.
+- `src/game/conversation_cutscene.cpp`: dialogue and automatic progression.
+- `src/game/CutsceneDrawing.cpp`: cutscene characters and dialogue panel.

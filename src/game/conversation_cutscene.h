@@ -1,29 +1,27 @@
 #pragma once
 
 struct DialogueLine {
-    const char* speakerTag;
-    const char* line1;
-    const char* line2;
-    int speaker; // 0 = Player (Left), 1 = Enemy (Right)
+    const char *speakerTag;
+    const char *line1;
+    const char *line2;
+    int speaker;
 };
 
 class ConversationCutscene {
-public:
+  public:
     static constexpr int turnCount = 6;
-    static constexpr double autoAdvanceSeconds = 4.0;
+    static constexpr double autoAdvanceSeconds = 5.0;
 
     void start(double currentTime);
     void advance(double currentTime);
     void update(double currentTime);
     bool isRunning() const;
 
-    int getCurrentTurn() const;
     int getSpeaker() const;
-    const DialogueLine& getDialogue(int turn) const;
-    const DialogueLine& getCurrentDialogue() const;
-    double getTurnElapsed(double currentTime) const;
+    const DialogueLine &getDialogue(int turn) const;
+    const DialogueLine &getCurrentDialogue() const;
 
-private:
+  private:
     double turnStartTime = 0.0;
     int currentTurn = 0;
     bool running = false;

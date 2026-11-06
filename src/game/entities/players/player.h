@@ -1,58 +1,39 @@
-#pragma once //this tells c++ to only read this file once, even if it is included multiple times
+#pragma once
 
 #include "../base/entities.h"
-#include "../../fightStrat.h"
 
-class playerClass: public EntityClass{
-    public:
-    enum playerRange{
-        MELEE,
-        RANGED,
-        DEFENSE
-    };
-
-    enum playerState{
-        vulnerable,
-        invulnerable,
-        defeated
-    };
+class playerClass : public EntityClass {
+  public:
+    enum playerRange { MELEE, RANGED, DEFENSE };
 
     playerRange playerType;
-    playerState playerStatus = vulnerable;
 
     int cost;
     int maxHealth = 5;
     bool isProtected = false;
-    int damageFlashTimer = 0;
-    fightStrat* strat = nullptr;
-
-    virtual ~playerClass() {
-        delete strat;
-    }
+    virtual ~playerClass() = default;
 
     void takeDamage(int amount) {
         if (health <= 0 || isProtected) {
-            return; // Protected by defense player
+            return;
         }
         health = health - amount;
-        damageFlashTimer = 15;
         if (health <= 0) {
             health = 0;
-            playerStatus = defeated;
         }
     }
 
-    float yOffset = 0.0f; // Height adjustment for jump and duck
+    float yOffset = 0.0f;
     bool isJumping = false;
     int jumpTimer = 0;
-    int jumpCooldown = 0; // Delay before the player can jump again
-    int crouchDelayTimer = 0; // Delay before crouching when landing from mid-air
+    int jumpCooldown = 0;
+    int crouchDelayTimer = 0;
 
     void jump() {
         if (playerType != DEFENSE && isJumping == false && jumpCooldown <= 0) {
             isJumping = true;
-            jumpTimer = 45; // Hang time in air (about 0.75 seconds)
-            yOffset = 0.10f; // Hop up in the air
+            jumpTimer = 45;
+            yOffset = 0.10f;
             crouchDelayTimer = 0;
         }
     }
@@ -60,14 +41,14 @@ class playerClass: public EntityClass{
     void duck() {
         if (playerType != DEFENSE) {
             if (isJumping == true) {
-                // If mid-air, drop to standing normally first
+
                 isJumping = false;
                 jumpTimer = 0;
                 jumpCooldown = 20;
-                yOffset = 0.0f; // Land to standing normally first
-                crouchDelayTimer = 8; // Short delay before crouching (about 0.13 seconds)
+                yOffset = 0.0f;
+                crouchDelayTimer = 8;
             } else if (crouchDelayTimer <= 0) {
-                // Grounded and delay passed: crouch down low
+
                 yOffset = -0.05f;
             }
         }
@@ -75,43 +56,26 @@ class playerClass: public EntityClass{
 
     void stand() {
         if (isJumping == false) {
-            yOffset = 0.0f; // Normal standing position
+            yOffset = 0.0f;
             crouchDelayTimer = 0;
         }
     }
 
     void updateJump() {
         if (isJumping == true) {
-            jumpTimer = jumpTimer - 1; // Count down the air time
+            jumpTimer = jumpTimer - 1;
 
             if (jumpTimer <= 0) {
-                isJumping = false; // Landed on floor!
+                isJumping = false;
                 yOffset = 0.0f;
-                jumpCooldown = 20; // Short ground delay before next jump (about 0.3 seconds)
+                jumpCooldown = 20;
             }
         } else if (jumpCooldown > 0) {
-            jumpCooldown = jumpCooldown - 1; // Count down the ground delay
+            jumpCooldown = jumpCooldown - 1;
         }
 
         if (crouchDelayTimer > 0) {
             crouchDelayTimer = crouchDelayTimer - 1;
         }
-
-        if (damageFlashTimer > 0) {
-            damageFlashTimer = damageFlashTimer - 1;
-        }
     }
-
-    void setStrat(fightStrat* s) {
-        strat = s;
-    }
-
-    void doAttack() {
-        if (strat != nullptr) {
-            strat->attack(damage);
-        }
-    }
-    
-
-
 };

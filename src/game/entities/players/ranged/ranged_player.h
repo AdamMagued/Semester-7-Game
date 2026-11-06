@@ -1,13 +1,13 @@
-#pragma once //this tells c++ to only read this file once, even if it is included multiple times
+#pragma once
 #include "../player.h"
 
 class ranged_player : public playerClass {
-    public:
+  public:
     int shootTimer = 0;
     int attackAnimationTimer = 0;
-    int shootCooldown = 120; // Fires once every two seconds
+    int shootCooldown = 120;
 
-    ranged_player(){
+    ranged_player() {
         health = 5;
         cost = 20;
         playerType = RANGED;
@@ -16,7 +16,8 @@ class ranged_player : public playerClass {
     }
 
     bool shouldShoot() {
-        if (attackAnimationTimer > 0) --attackAnimationTimer;
+        if (attackAnimationTimer > 0)
+            --attackAnimationTimer;
         shootTimer = shootTimer + 1;
         if (shootTimer >= shootCooldown) {
             shootTimer = 0;

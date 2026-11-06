@@ -1,34 +1,25 @@
 #pragma once
+#include "../../Lanes.h"
 #include "../base/entities.h"
 
-enum EnemyType {
-    EASY,
-    MEDIUM,
-    HARD
-};
+enum EnemyType { EASY, MEDIUM, HARD };
 
 class Enemy : public EntityClass {
-public:
+  public:
     EnemyType type;
     int maxHealth = 5;
     int attackTimer = 0;
     bool active = true;
-    bool isFighting = false; // True while a player is blocking this enemy
+    bool isFighting = false;
 
     Enemy(int laneNumber, EnemyType enemyType = EASY) {
         lane = laneNumber;
         type = enemyType;
         active = true;
-        x = 0.90f;        // Start on the right side of the lane
-        speed = 0.0006f;  // Ranged enemies advance steadily while firing
+        x = 0.90f;
+        speed = 0.0006f;
 
-        if (lane == 0) {
-            y = -0.243f;   // Top roadway lane
-        } else if (lane == 1) {
-            y = -0.531f;   // Middle roadway lane
-        } else if (lane == 2) {
-            y = -0.842f;   // Bottom roadway lane
-        }
+        y = laneCenters[lane];
 
         if (type == EASY) {
             health = 5;
@@ -48,7 +39,7 @@ public:
         if (active == true) {
             x = x - speed;
             if (x < -0.85f) {
-                x = -0.85f; // Stop at the house
+                x = -0.85f;
             }
         }
     }

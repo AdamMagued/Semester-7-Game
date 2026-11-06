@@ -35,7 +35,13 @@ bool hasDefenseInFront(playerClass *player, const std::vector<playerClass *> &pl
 
 static void dropCoin(Enemy &enemy, std::vector<Collectible> &collectibles) {
     enemy.active = false;
-    collectibles.push_back({enemy.x, enemy.y, enemy.lane, 10, true});
+    int value = 20;
+    if (enemy.type == MEDIUM) {
+        value = 30;
+    } else if (enemy.type == HARD) {
+        value = 50;
+    }
+    collectibles.push_back({enemy.x, enemy.y, enemy.lane, value, true});
 }
 
 void updatePlayers(std::vector<playerClass *> &players, std::vector<Enemy> &enemies,
@@ -189,7 +195,7 @@ void updateEnemies(std::vector<Enemy> &enemies, std::vector<playerClass *> &play
                 }
                 enemies[j].isFighting = (blockingPlayer != -1);
 
-                if (enemies[j].type == HARD && blockingPlayer != -1 && enemies[j].attackTimer % 50 == 10) {
+                if (enemies[j].type == HARD && blockingPlayer != -1 && enemies[j].attackTimer % Enemy::meleeAttackFrames == 13) {
                     players[blockingPlayer]->isProtected =
                         hasDefenseInFront(players[blockingPlayer], players);
                     players[blockingPlayer]->takeDamage(enemies[j].damage);
@@ -210,7 +216,7 @@ void updateEnemies(std::vector<Enemy> &enemies, std::vector<playerClass *> &play
                         spear.y = enemies[j].y - 0.065f;
                     }
                     spear.lane = enemies[j].lane;
-                    spear.speed = 0.0075f;
+                    spear.speed = 0.0055f;
                     spear.active = true;
                     enemyProjectiles.push_back(spear);
                 }

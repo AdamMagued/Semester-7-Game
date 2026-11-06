@@ -69,7 +69,7 @@ void drawSprites(const std::vector<playerClass *> &players, const std::vector<En
                 enemyTexture = fighting ? mechAttackTexture : mechWalkTexture;
                 int mechFrames = fighting ? 7 : 8;
                 int mechFrame =
-                    fighting ? (enemies[j].attackTimer % 50) * 7 / 50 : (enemies[j].attackTimer / 6) % 8;
+                    fighting ? (enemies[j].attackTimer % Enemy::meleeAttackFrames) * 7 / Enemy::meleeAttackFrames : (enemies[j].attackTimer / 6) % 8;
                 u0 = static_cast<float>(mechFrame) / mechFrames;
                 u1 = static_cast<float>(mechFrame + 1) / mechFrames;
 

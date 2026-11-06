@@ -6,6 +6,7 @@ enum EnemyType { EASY, MEDIUM, HARD };
 
 class Enemy : public EntityClass {
   public:
+    static constexpr int meleeAttackFrames = 90;
     EnemyType type;
     int maxHealth = 5;
     int attackTimer = 0;
@@ -31,7 +32,7 @@ class Enemy : public EntityClass {
             health = 7;
             maxHealth = 7;
             damage = 2;
-            speed = 0.0018f;
+            speed = 0.0009f;
         }
     }
 

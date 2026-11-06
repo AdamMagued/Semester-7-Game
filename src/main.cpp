@@ -121,8 +121,8 @@ int main() {
     std::vector<Enemy> enemies;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
     const int enemiesPerWave[3] = {3, 5, 10};
-    const int framesBetweenSpawns[3] = {360, 240, 240};
-    const int rangedCycleFrames = 450;
+    const int framesBetweenSpawns[3] = {360, 360, 360};
+    const int rangedCycleFrames = 600;
     int currentWave = 1;
     int enemiesSpawned = 0;
     int spawnTimer = 0;
@@ -752,26 +752,6 @@ int main() {
                              0.55f, 0.65f);
                 addRectangle(characterOverlay, px + 0.036f, py + 0.04f, px + 0.041f, py - 0.043f, 0.75f,
                              0.95f, 1);
-            } else if (player->playerType == playerClass::MELEE) {
-                int cooldown = static_cast<melee_player *>(player)->attackCooldown;
-                float swing = 0.0f;
-                if (cooldown > 35)
-                    swing = (50 - cooldown) / 15.0f;
-                else if (cooldown > 0)
-                    swing = 1.0f;
-                float tipX = px + 0.035f + swing * 0.06f;
-                float tipY = py + 0.075f - swing * 0.065f;
-                addTriangle(characterOverlay, px + 0.025f, py, tipX, tipY, tipX + 0.008f, tipY, 0.65f, 0.80f,
-                            0.85f);
-                addTriangle(characterOverlay, px + 0.025f, py, tipX + 0.008f, tipY, px + 0.033f, py, 0.65f,
-                            0.80f, 0.85f);
-                addRectangle(characterOverlay, px + 0.023f, py + 0.003f, px + 0.035f, py - 0.01f, 0.15f,
-                             0.15f, 0.18f);
-            } else {
-                addRectangle(characterOverlay, px + 0.018f, py + 0.012f, px + 0.07f, py + 0.002f, 0.16f, 0.2f,
-                             0.25f);
-                addRectangle(characterOverlay, px + 0.03f, py + 0.002f, px + 0.038f, py - 0.017f, 0.3f, 0.25f,
-                             0.18f);
             }
             float top = player->y + player->yOffset + 0.18f;
             float fraction = static_cast<float>(player->health) / player->maxHealth;

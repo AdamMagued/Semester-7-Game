@@ -18,7 +18,7 @@ public:
 
     static constexpr float middleLaneY = -0.04f;
     static constexpr float dialogueY = -0.88f;
-    static constexpr double secondsPerTurn = 2.0;
+    static constexpr double secondsPerTurn = 3.0;
     static constexpr double shakeSeconds = 0.55;
     static constexpr double runSeconds = 1.2;
     static constexpr int turnCount = 6;

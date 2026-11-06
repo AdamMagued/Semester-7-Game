@@ -818,7 +818,7 @@ int main() {
                 std::vector<float> dialogue;
                 addRectangle(dialogue, -0.92f, -0.76f, 0.92f, -0.95f, 0.015f, 0.025f, 0.04f);
                 drawText(dialogue, conversation.textForTurn(pose.turn), -0.86f,
-                         pose.dialogueY, 0.0035f, 0.92f, 0.94f, 1.0f);
+                         pose.dialogueY, 0.0065f, 0.92f, 0.94f, 1.0f);
                 addRectangle(dialogue, 0.70f, -0.75f, 0.98f, -0.94f,
                              0.05f, 0.68f, 0.84f);
                 drawText(dialogue, "SKIP CUTSCENE", 0.715f, -0.80f, 0.0035f,

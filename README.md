@@ -29,7 +29,9 @@ With the Visual Studio generator on Windows:
 
 - Enter or Start: start a new game.
 - Click a lane: select or deselect it. Multiple lanes can be selected.
-- Click a card or press 1, 2, or 3: buy melee, ranged, or defense for the last selected lane.
+- Click melee/ranged or press 1/2: buy that player for the last selected lane.
+- Click defense or press 3, then click a position inside a lane: place a stationary defense player there.
+- Ranged and defense cards are available from wave 2 when affordable.
 - W or Up: jump with players in selected lanes.
 - S or Down: duck with players in selected lanes.
 - Escape: pause or continue.
@@ -38,3 +40,16 @@ With the Visual Studio generator on Windows:
 - F11: toggle fullscreen and windowed mode.
 
 Players move and attack automatically. Defense players stay in place. Defeated enemies drop coins that players collect by touching them. A card is available only when you can afford its price.
+
+## Source files
+
+- `src/main.cpp`: window, input, waves, placement, menus and the main loop.
+- `src/game/Gameplay.cpp`: movement, attacks, damage and coins.
+- `src/game/entities/`: player and enemy data and their basic actions.
+- `src/game/Lanes.h`: lane positions shared by drawing and input.
+- `src/renderer/Drawing.cpp`: shapes, text, shaders and image loading.
+- `src/renderer/Sprites.cpp`: character and spear sprites.
+- `src/renderer/Objects.cpp`: coins, bullets and protection indicators.
+- `src/ui/Hud.cpp`: player cards and coin count.
+- `src/game/conversation_cutscene.cpp`: dialogue and automatic progression.
+- `src/game/CutsceneDrawing.cpp`: cutscene characters and dialogue panel.

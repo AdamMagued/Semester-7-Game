@@ -9,10 +9,16 @@ add_subdirectory(external/glm)
 
 find_package(OpenGL REQUIRED)
 
-# Automatically find all .cpp files in src/ and all its subdirectories
-file(GLOB_RECURSE GAME_SOURCES "src/*.cpp")
-
-add_executable(MyGame ${GAME_SOURCES})
+add_executable(MyGame
+    src/main.cpp
+    src/ui/Hud.cpp
+    src/renderer/Objects.cpp
+    src/renderer/Sprites.cpp
+    src/renderer/Drawing.cpp
+    src/game/Gameplay.cpp
+    src/game/CutsceneDrawing.cpp
+    src/game/conversation_cutscene.cpp
+)
 
 target_include_directories(MyGame PRIVATE
     external/glad/include

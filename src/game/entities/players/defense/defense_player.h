@@ -1,9 +1,9 @@
-#pragma once //this tells c++ to only read this file once, even if it is included multiple times
+#pragma once
 
 #include "../player.h"
 class defense_player : public playerClass {
-    public:
-    defense_player(){
+  public:
+    defense_player() {
         health = 7;
         maxHealth = 7;
         cost = 30;

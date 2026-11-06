@@ -73,13 +73,10 @@ void addTechBase(std::vector<float>& vertices) {
     addRectangle(vertices, -0.97f, 0.66f, -0.95f, -0.82f, 0.13f, 0.28f, 0.39f);
     addRectangle(vertices, -0.82f, 0.66f, -0.80f, -0.82f, 0.05f, 0.72f, 0.91f);
 
-    // Armored roof and a small sensor mast.
+    // Armored roof with a raised center ridge.
     addRectangle(vertices, -0.98f, 0.70f, -0.79f, 0.64f, 0.08f, 0.20f, 0.31f);
     addTriangle(vertices, -0.95f, 0.70f, -0.90f, 0.77f, -0.85f, 0.70f,
                 0.12f, 0.34f, 0.48f);
-    addRectangle(vertices, -0.91f, 0.77f, -0.89f, 0.84f, 0.50f, 0.72f, 0.80f);
-    addRectangle(vertices, -0.94f, 0.82f, -0.86f, 0.80f, 0.50f, 0.72f, 0.80f);
-    addRectangle(vertices, -0.91f, 0.85f, -0.89f, 0.83f, 0.20f, 0.95f, 1.0f);
 
     // Wide command screen with a bright display and status lights.
     addRectangle(vertices, -0.94f, 0.56f, -0.82f, 0.36f, 0.01f, 0.025f, 0.06f);

@@ -66,14 +66,14 @@ void drawConversation(ConversationCutscene &conversation, double currentFrameTim
     int speaker = conversation.getSpeaker();
     const DialogueLine &dialogue = conversation.getCurrentDialogue();
 
-    float pBob = (speaker == 0) ? static_cast<float>(std::sin(currentFrameTime * 8.0) * 0.015)
-                                : static_cast<float>(std::sin(currentFrameTime * 3.0) * 0.005);
+    float pBob = (speaker == 0) ? static_cast<float>(std::sin(currentFrameTime * 9.0) * 0.012)
+                                : static_cast<float>(std::sin(currentFrameTime * 2.5) * 0.004);
     float eBob = (speaker == 1) ? static_cast<float>(std::sin(currentFrameTime * 9.0) * 0.012)
                                 : static_cast<float>(std::sin(currentFrameTime * 2.5) * 0.004);
 
     int pFrames = playerAnimationFrames[0][0];
     int pFrame =
-        (pFrames > 0) ? static_cast<int>(currentFrameTime * (speaker == 0 ? 7.0 : 3.5)) % pFrames : 0;
+        (pFrames > 0) ? static_cast<int>(currentFrameTime * (speaker == 0 ? 5.0 : 2.0)) % pFrames : 0;
     float pBrightness = (speaker == 0) ? 1.0f : 0.52f;
     drawCharacter(playerProgram, damageLocation, brightnessLocation, playerVBO, playerVAO,
                   playerAnimationTextures[0][0], pFrame, pFrames, -0.52f, -0.32f + pBob, 0.38f, 0.58f, false,

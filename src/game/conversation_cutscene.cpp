@@ -1,71 +1,91 @@
 #include "conversation_cutscene.h"
 
-#include <cmath>
-
 namespace {
-// Edit these lines to change what the player and enemy say.
-const char* dialogueLines[] = {
-    "PLAYER: THE OUTPOST'S POWER CORE KEEPS PEOPLE ALIVE.",
-    "ENEMY: HUMAN EXPANSION IS DESTROYING THIS WORLD.",
-    "PLAYER: IF THE CORE FAILS, THE SHELTER GOES DARK.",
-    "ENEMY: I WILL SHUT IT DOWN TO PROTECT THE PLANET.",
-    "PLAYER: THEN WE DEFEND THE OUTPOST. STAND DOWN.",
-    "ENEMY: I WILL NOT LET YOU STOP ME."
+const DialogueLine dialogueData[ConversationCutscene::turnCount] = {
+    {
+        "OUTPOST DEFENDER",
+        "THE POWER CORE KEEPS OUR PEOPLE ALIVE.",
+        "WITHOUT IT, THE UNDERGROUND SHELTERS GO COLD.",
+        0 // Player
+    },
+    {
+        "CYBORG COMMANDER",
+        "HUMAN EXPANSION IS DEVOURING THIS PLANET.",
+        "YOUR METROPOLIS CONSUMES WHAT BELONGS TO NATURE.",
+        1 // Enemy
+    },
+    {
+        "OUTPOST DEFENDER",
+        "WE BUILT THIS REFUGE FOR FAMILIES ESCAPING THE WASTES.",
+        "WE WILL NOT LET INNOCENT LIVES BE EXTINGUISHED.",
+        0 // Player
+    },
+    {
+        "CYBORG COMMANDER",
+        "FEELINGS ARE IRRELEVANT. MY ORDERS ARE ABSOLUTE.",
+        "THE CORE WILL BE EXTRACTED AND YOUR BASE LEVELED.",
+        1 // Enemy
+    },
+    {
+        "OUTPOST DEFENDER",
+        "THEN WE STAND OUR GROUND TOGETHER!",
+        "HOLD THE PERIMETER AND PROTECT THE CORE!",
+        0 // Player
+    },
+    {
+        "CYBORG COMMANDER",
+        "INITIATING EXTERMINATION PROTOCOL.",
+        "ALL CYBORG WAVES, ADVANCE UPON THE LANES!",
+        1 // Enemy
+    }
 };
 }
 
 void ConversationCutscene::start(double currentTime) {
-    startedAt = currentTime;
+    turnStartTime = currentTime;
+    currentTurn = 0;
     running = true;
 }
 
-ConversationCutscene::Pose ConversationCutscene::update(double currentTime) {
-    double elapsed = running ? currentTime - startedAt : 0.0;
-    if (elapsed < 0.0) elapsed = 0.0;
-    if (elapsed >= totalSeconds) running = false;
-
-    bool runningPhase = running && elapsed < runSeconds;
-    double conversationElapsed = elapsed > runSeconds ? elapsed - runSeconds : 0.0;
-
-    int turn = static_cast<int>(conversationElapsed / secondsPerTurn);
-    if (turn >= turnCount) turn = turnCount - 1;
-
-    // Turns alternate: player, enemy, player, enemy.
-    int speaker = turn % 2;
-    double turnTime = conversationElapsed - turn * secondsPerTurn;
-
-    float approach = static_cast<float>(elapsed / runSeconds);
-    if (approach > 1.0f) approach = 1.0f;
-    float playerX = -0.95f + 0.65f * approach;
-    float enemyX = 0.95f - 0.65f * approach;
-
-    // Only the speaking character shakes, briefly at the start of its turn.
-    float shake = 0.0f;
-    if (!runningPhase && running && turnTime < shakeSeconds) {
-        shake = static_cast<float>(std::sin(turnTime * 58.0) * 0.012);
+void ConversationCutscene::advance(double currentTime) {
+    if (!running) return;
+    currentTurn++;
+    turnStartTime = currentTime;
+    if (currentTurn >= turnCount) {
+        running = false;
     }
+}
 
-    return {
-        playerX + (speaker == 0 ? shake : 0.0f),
-        enemyX + (speaker == 1 ? shake : 0.0f),
-        middleLaneY,
-        middleLaneY,
-        speaker == 0 ? shake : 0.0f,
-        speaker == 1 ? shake : 0.0f,
-        dialogueY,
-        speaker,
-        turn,
-        runningPhase,
-        running
-    };
+void ConversationCutscene::update(double currentTime) {
+    if (!running) return;
+    if (currentTime - turnStartTime >= autoAdvanceSeconds) {
+        advance(currentTime);
+    }
 }
 
 bool ConversationCutscene::isRunning() const {
     return running;
 }
 
-const char* ConversationCutscene::textForTurn(int turn) const {
+int ConversationCutscene::getCurrentTurn() const {
+    return currentTurn;
+}
+
+int ConversationCutscene::getSpeaker() const {
+    if (currentTurn < 0 || currentTurn >= turnCount) return 0;
+    return dialogueData[currentTurn].speaker;
+}
+
+const DialogueLine& ConversationCutscene::getDialogue(int turn) const {
     if (turn < 0) turn = 0;
     if (turn >= turnCount) turn = turnCount - 1;
-    return dialogueLines[turn];
+    return dialogueData[turn];
+}
+
+const DialogueLine& ConversationCutscene::getCurrentDialogue() const {
+    return getDialogue(currentTurn);
+}
+
+double ConversationCutscene::getTurnElapsed(double currentTime) const {
+    return currentTime - turnStartTime;
 }

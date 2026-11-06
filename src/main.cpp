@@ -263,6 +263,10 @@ static const char* getGlyph(char c) {
         case '*': return ".#." "###" ".#." "..." "...";
         case '^': return ".#." "#.#" "..." "..." "...";
         case '.': return "..." "..." "..." "..." ".#.";
+        case '!': return ".#." ".#." ".#." "..." ".#.";
+        case '-': return "..." "..." "###" "..." "...";
+        case '[': return "##." "#.." "#.." "#.." "##.";
+        case ']': return ".##" "..#" "..#" "..#" ".##";
         default:  return "..." "..." "..." "..." "...";
     }
 }
@@ -348,9 +352,12 @@ in vec2 uv;
 out vec4 FragColor;
 uniform sampler2D playerImage;
 uniform float damageAmount;
+uniform float brightness;
 void main() {
     vec4 color = texture(playerImage, uv);
     color.rgb = mix(color.rgb, vec3(1.0, 0.0, 0.0), damageAmount);
+    float b = (brightness > 0.01) ? brightness : 1.0;
+    color.rgb *= b;
     FragColor = color;
 }
 )";
@@ -455,6 +462,7 @@ int main() {
     glDeleteShader(playerVS);
     glDeleteShader(playerFS);
     GLint damageLocation = glGetUniformLocation(playerProgram, "damageAmount");
+    GLint brightnessLocation = glGetUniformLocation(playerProgram, "brightness");
 
     stbi_set_flip_vertically_on_load(true);
     glEnable(GL_BLEND);
@@ -493,7 +501,7 @@ int main() {
         }
     }
 
-    GLuint backgroundTexture = loadTexture("assets/textures/ui/main_menu.jpg");
+    GLuint backgroundTexture = loadTexture("assets/textures/environment/cyberpunk_street.jpg");
 
     GLuint robotEnemyTextures[3] = {
         loadTexture("assets/textures/characters/robot_enemy/Robot Idle.png"),
@@ -511,35 +519,8 @@ int main() {
     GLuint mechWalkTexture = loadTexture("assets/textures/enemies/hard_melee/walk.png");
     GLuint mechAttackTexture = loadTexture("assets/textures/enemies/hard_melee/attack.png");
 
-    // --- Playfield rectangles ---
+    // --- Playfield vertices ---
     std::vector<float> vertices;
-    addRectangle(vertices, -0.82f,  0.62f, 0.98f,  0.20f, 0.09f, 0.17f, 0.25f);
-    addRectangle(vertices, -0.82f,  0.20f, 0.98f, -0.28f, 0.09f, 0.17f, 0.25f);
-    addRectangle(vertices, -0.82f, -0.28f, 0.98f, -0.82f, 0.09f, 0.17f, 0.25f);
-    addRectangle(vertices, -0.80f,  0.205f, 0.98f,  0.195f, 0.05f, 0.68f, 0.84f);
-    addRectangle(vertices, -0.80f, -0.275f, 0.98f, -0.285f, 0.05f, 0.68f, 0.84f);
-
-    // Circuit traces run along the lane edges, away from the combat paths.
-    addRectangle(vertices, 0.08f, 0.58f, 0.54f, 0.57f, 0.05f, 0.42f, 0.58f);
-    addRectangle(vertices, 0.20f, 0.58f, 0.21f, 0.53f, 0.05f, 0.42f, 0.58f);
-    addRectangle(vertices, 0.20f, 0.54f, 0.36f, 0.53f, 0.05f, 0.42f, 0.58f);
-    addRectangle(vertices, 0.34f, 0.54f, 0.36f, 0.52f, 0.20f, 0.92f, 1.0f);
-    addRectangle(vertices, 0.55f, 0.59f, 0.58f, 0.56f, 0.20f, 0.92f, 1.0f);
-
-    addRectangle(vertices, 0.15f, -0.19f, 0.57f, -0.20f, 0.05f, 0.42f, 0.58f);
-    addRectangle(vertices, 0.28f, -0.20f, 0.29f, -0.25f, 0.05f, 0.42f, 0.58f);
-    addRectangle(vertices, 0.28f, -0.24f, 0.43f, -0.25f, 0.05f, 0.42f, 0.58f);
-    addRectangle(vertices, 0.41f, -0.23f, 0.44f, -0.26f, 0.20f, 0.92f, 1.0f);
-    addRectangle(vertices, 0.58f, -0.18f, 0.61f, -0.21f, 0.20f, 0.92f, 1.0f);
-
-    addRectangle(vertices, 0.15f, -0.74f, 0.65f, -0.75f, 0.05f, 0.42f, 0.58f);
-    addRectangle(vertices, 0.22f, -0.75f, 0.23f, -0.80f, 0.05f, 0.42f, 0.58f);
-    addRectangle(vertices, 0.22f, -0.79f, 0.38f, -0.80f, 0.05f, 0.42f, 0.58f);
-    addRectangle(vertices, 0.36f, -0.78f, 0.39f, -0.81f, 0.20f, 0.92f, 1.0f);
-    addRectangle(vertices, 0.67f, -0.73f, 0.70f, -0.76f, 0.20f, 0.92f, 1.0f);
-
-    addTechBase(vertices);
-    addFacilityDetails(vertices);
 
     // Player, Projectiles, Enemies, Lane Selection, and UI Card setup
     std::vector<playerClass*> players;
@@ -731,17 +712,28 @@ int main() {
         }
 
         if (showingConversation) {
-            bool skipHovered = x >= 0.70f && x <= 0.98f && y >= -0.94f && y <= -0.75f;
-            if ((mouseClicked && skipHovered) || spacePressed) {
+            bool skipHovered = (x >= 0.68f && x <= 0.98f && y >= 0.80f && y <= 0.96f);
+            bool escPressed = (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS);
+
+            if (escPressed || (mouseClicked && skipHovered)) {
                 showingConversation = false;
                 restartRequested = true;
                 accumulatedTime = 0.0;
                 lastFrameTime = currentFrameTime;
                 continue;
+            } else if (spacePressed || (mouseClicked && !skipHovered)) {
+                conversation.advance(currentFrameTime);
+                if (!conversation.isRunning()) {
+                    showingConversation = false;
+                    restartRequested = true;
+                    accumulatedTime = 0.0;
+                    lastFrameTime = currentFrameTime;
+                    continue;
+                }
             }
 
-            ConversationCutscene::Pose pose = conversation.update(currentFrameTime);
-            if (!pose.active) {
+            conversation.update(currentFrameTime);
+            if (!conversation.isRunning()) {
                 showingConversation = false;
                 restartRequested = true;
                 accumulatedTime = 0.0;
@@ -750,16 +742,18 @@ int main() {
             }
 
             glViewport(gameLeft, gameBottom, gameWidth, gameHeight);
-            glClearColor(0.035f, 0.055f, 0.08f, 1.0f);
+            glClearColor(0.015f, 0.02f, 0.035f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
 
+            // 1. Draw Scenic Background Environment - DIMMED so focus is completely on the characters!
             const float backgroundQuad[] = {
-                -1,1,0,1, 1,1,1,1, 1,-1,1,0,
-                -1,1,0,1, 1,-1,1,0, -1,-1,0,0
+                -1, 1, 0, 1,   1, 1, 1, 1,   1,-1, 1, 0,
+                -1, 1, 0, 1,   1,-1, 1, 0,  -1,-1, 0, 0
             };
             if (backgroundTexture) {
                 glUseProgram(playerProgram);
                 glUniform1f(damageLocation, 0.0f);
+                glUniform1f(brightnessLocation, 0.25f); // Dimmed to 25% brightness
                 glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, backgroundTexture);
@@ -769,18 +763,33 @@ int main() {
                 glDrawArrays(GL_TRIANGLES, 0, 6);
             }
 
-            glBindBuffer(GL_ARRAY_BUFFER, VBO);
-            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
-            glUseProgram(shaderProgram);
-            glBindVertexArray(VAO);
-            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size() / 6));
+            // 2. Stage base platform geometry (characters stand on stage, NOT on background lanes!)
+            std::vector<float> stageGeom;
+            // Dark foreground ground plane
+            addRectangle(stageGeom, -1.0f, -0.78f, 1.0f, -1.0f, 0.04f, 0.05f, 0.07f);
+            // Glowing cyan rim line on the stage floor
+            addRectangle(stageGeom, -1.0f, -0.772f, 1.0f, -0.78f, 0.08f, 0.55f, 0.75f);
 
-            auto drawConversationSprite = [&](GLuint texture, int frame, int frameCount,
-                                              float centerX, float centerY,
-                                              float halfWidth, float halfHeight) {
+            glUseProgram(shaderProgram);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBufferData(GL_ARRAY_BUFFER, stageGeom.size() * sizeof(float), stageGeom.data(), GL_DYNAMIC_DRAW);
+            glBindVertexArray(VAO);
+            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(stageGeom.size() / 6));
+
+            // 3. Render Massive Foreground Characters
+            int speaker = conversation.getSpeaker(); // 0 = Player (Left), 1 = Enemy (Right)
+            const DialogueLine& dialogue = conversation.getCurrentDialogue();
+
+            auto drawMassiveSprite = [&](GLuint texture, int frame, int frameCount,
+                                         float centerX, float centerY,
+                                         float halfWidth, float halfHeight,
+                                         bool flipHorizontal, float charBrightness) {
                 if (!texture || frameCount <= 0) return;
                 float u0 = static_cast<float>(frame) / frameCount;
                 float u1 = static_cast<float>(frame + 1) / frameCount;
+                if (flipHorizontal) {
+                    std::swap(u0, u1);
+                }
                 const float quad[] = {
                     centerX - halfWidth, centerY + halfHeight, u0, 1.0f,
                     centerX + halfWidth, centerY + halfHeight, u1, 1.0f,
@@ -791,6 +800,7 @@ int main() {
                 };
                 glUseProgram(playerProgram);
                 glUniform1f(damageLocation, 0.0f);
+                glUniform1f(brightnessLocation, charBrightness);
                 glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texture);
@@ -800,35 +810,96 @@ int main() {
                 glDrawArrays(GL_TRIANGLES, 0, 6);
             };
 
-            int playerAnimation = pose.running ? 1 : 0;
-            int playerFrameCount = playerAnimationFrames[0][playerAnimation];
-            int playerFrame = playerFrameCount > 0
-                ? static_cast<int>(currentFrameTime * (pose.running ? 8.0 : 4.0)) % playerFrameCount
+            // Subtle talking/breathing bobs
+            float pBob = (speaker == 0)
+                ? static_cast<float>(std::sin(currentFrameTime * 8.0) * 0.015)
+                : static_cast<float>(std::sin(currentFrameTime * 3.0) * 0.005);
+            float eBob = (speaker == 1)
+                ? static_cast<float>(std::sin(currentFrameTime * 9.0) * 0.012)
+                : static_cast<float>(std::sin(currentFrameTime * 2.5) * 0.004);
+
+            // Player: Massive on Left Foreground
+            int pFrames = playerAnimationFrames[0][0];
+            int pFrame = (pFrames > 0)
+                ? static_cast<int>(currentFrameTime * (speaker == 0 ? 7.0 : 3.5)) % pFrames
                 : 0;
-            drawConversationSprite(playerAnimationTextures[0][playerAnimation], playerFrame,
-                                  playerFrameCount, pose.playerX, pose.playerY, 0.055f, 0.085f);
+            float pBrightness = (speaker == 0) ? 1.0f : 0.52f;
+            drawMassiveSprite(playerAnimationTextures[0][0], pFrame, pFrames,
+                              -0.52f, -0.32f + pBob, 0.38f, 0.58f, false, pBrightness);
 
-            int enemyAnimation = pose.running ? 1 : 0;
-            int enemyFrameCount = enemyAnimation == 1 ? 8 : 2;
-            int enemyFrame = static_cast<int>(currentFrameTime * (pose.running ? 8.0 : 4.0)) % enemyFrameCount;
-            drawConversationSprite(robotEnemyTextures[enemyAnimation], enemyFrame, enemyFrameCount,
-                                  pose.enemyX, pose.enemyY, 0.07f, 0.105f);
+            // Enemy: Massive on Right Foreground (facing left toward player)
+            int eFrames = 2;
+            int eFrame = static_cast<int>(currentFrameTime * (speaker == 1 ? 5.0 : 2.0)) % eFrames;
+            float eBrightness = (speaker == 1) ? 1.0f : 0.52f;
+            drawMassiveSprite(robotEnemyTextures[0], eFrame, eFrames,
+                              0.52f, -0.30f + eBob, 0.44f, 0.58f, true, eBrightness);
 
-            if (!pose.running) {
-                std::vector<float> dialogue;
-                addRectangle(dialogue, -0.92f, -0.76f, 0.92f, -0.95f, 0.015f, 0.025f, 0.04f);
-                drawText(dialogue, conversation.textForTurn(pose.turn), -0.86f,
-                         pose.dialogueY, 0.0065f, 0.92f, 0.94f, 1.0f);
-                addRectangle(dialogue, 0.70f, -0.75f, 0.98f, -0.94f,
-                             0.05f, 0.68f, 0.84f);
-                drawText(dialogue, "SKIP CUTSCENE", 0.715f, -0.80f, 0.0035f,
-                         0.92f, 0.98f, 1.0f);
-                glUseProgram(shaderProgram);
-                glBindBuffer(GL_ARRAY_BUFFER, VBO);
-                glBufferData(GL_ARRAY_BUFFER, dialogue.size() * sizeof(float), dialogue.data(), GL_DYNAMIC_DRAW);
-                glBindVertexArray(VAO);
-                glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(dialogue.size() / 6));
+            // 4. PvZ-Style Comic Speech Bubble
+            std::vector<float> bubbleGeom;
+            float bLeft = 0.0f, bRight = 0.0f, bBottom = 0.32f, bTop = 0.80f;
+            float tailBaseL = 0.0f, tailBaseR = 0.0f, tailTipX = 0.0f, tailTipY = 0.20f;
+
+            if (speaker == 0) {
+                // Speech bubble over player on left
+                bLeft = -0.74f;
+                bRight = 0.28f;
+                tailBaseL = -0.46f;
+                tailBaseR = -0.32f;
+                tailTipX = -0.44f;
+            } else {
+                // Speech bubble over enemy on right
+                bLeft = -0.28f;
+                bRight = 0.74f;
+                tailBaseL = 0.32f;
+                tailBaseR = 0.46f;
+                tailTipX = 0.44f;
             }
+
+            // Drop shadow
+            addRectangle(bubbleGeom, bLeft + 0.014f, bTop - 0.014f, bRight + 0.014f, bBottom - 0.014f, 0.02f, 0.03f, 0.05f);
+            // Outer dark comic border
+            addRectangle(bubbleGeom, bLeft - 0.008f, bTop + 0.008f, bRight + 0.008f, bBottom - 0.008f, 0.06f, 0.08f, 0.12f);
+            // Crisp white speech bubble interior
+            addRectangle(bubbleGeom, bLeft, bTop, bRight, bBottom, 0.98f, 0.98f, 0.96f);
+
+            // Comic speech pointer tail (outer border triangle + inner white triangle)
+            addTriangle(bubbleGeom, tailBaseL - 0.01f, bBottom, tailBaseR + 0.01f, bBottom, tailTipX, tailTipY - 0.01f, 0.06f, 0.08f, 0.12f);
+            addTriangle(bubbleGeom, tailBaseL, bBottom + 0.003f, tailBaseR, bBottom + 0.003f, tailTipX, tailTipY, 0.98f, 0.98f, 0.96f);
+
+            // Speaker Tag Badge
+            if (speaker == 0) {
+                addRectangle(bubbleGeom, bLeft + 0.04f, bTop - 0.03f, bLeft + 0.36f, bTop - 0.095f, 0.08f, 0.42f, 0.72f);
+                drawText(bubbleGeom, dialogue.speakerTag, bLeft + 0.055f, bTop - 0.05f, 0.0034f, 1.0f, 1.0f, 1.0f);
+            } else {
+                addRectangle(bubbleGeom, bRight - 0.36f, bTop - 0.03f, bRight - 0.04f, bTop - 0.095f, 0.75f, 0.18f, 0.18f);
+                drawText(bubbleGeom, dialogue.speakerTag, bRight - 0.345f, bTop - 0.05f, 0.0034f, 1.0f, 1.0f, 1.0f);
+            }
+
+            // Dialogue Lines inside bubble (crisp dark text)
+            drawText(bubbleGeom, dialogue.line1, bLeft + 0.05f, bTop - 0.16f, 0.0038f, 0.08f, 0.09f, 0.12f);
+            drawText(bubbleGeom, dialogue.line2, bLeft + 0.05f, bTop - 0.25f, 0.0038f, 0.08f, 0.09f, 0.12f);
+
+            // Subtle divider line
+            addRectangle(bubbleGeom, bLeft + 0.04f, bBottom + 0.11f, bRight - 0.04f, bBottom + 0.106f, 0.85f, 0.87f, 0.90f);
+
+            // Bottom "Press to continue" prompt like PvZ
+            drawText(bubbleGeom, "PRESS [SPACE] OR CLICK TO CONTINUE", bLeft + 0.05f, bBottom + 0.045f, 0.0028f, 0.35f, 0.42f, 0.50f);
+
+            // Skip Button in top-right corner
+            float skipR = skipHovered ? 0.18f : 0.08f;
+            float skipG = skipHovered ? 0.55f : 0.12f;
+            float skipB = skipHovered ? 0.75f : 0.18f;
+            addRectangle(bubbleGeom, 0.68f, 0.95f, 0.96f, 0.84f, skipR, skipG, skipB);
+            drawText(bubbleGeom, "SKIP [ESC]", 0.715f, 0.88f, 0.0035f, 0.88f, 0.95f, 1.0f);
+
+            // Render all UI / bubble geometry
+            glUseProgram(shaderProgram);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBufferData(GL_ARRAY_BUFFER, bubbleGeom.size() * sizeof(float), bubbleGeom.data(), GL_DYNAMIC_DRAW);
+            glBindVertexArray(VAO);
+            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(bubbleGeom.size() / 6));
+
+            drawMousePointer(window, shaderProgram, VAO, VBO);
 
             glfwSwapBuffers(window);
             glfwPollEvents();
@@ -903,9 +974,9 @@ int main() {
         // Check lane hovering
         int hoveredLane = -1;
         if (x >= -0.80f && x <= 0.98f) {
-            if (y <= 0.62f && y >= 0.20f) hoveredLane = 0;
-            else if (y < 0.20f && y >= -0.28f) hoveredLane = 1;
-            else if (y < -0.28f && y >= -0.82f) hoveredLane = 2;
+            if (y <= -0.108f && y >= -0.378f) hoveredLane = 0;
+            else if (y < -0.378f && y >= -0.684f) hoveredLane = 1;
+            else if (y < -0.684f && y >= -1.000f) hoveredLane = 2;
         }
 
         // Check Escape key for pause
@@ -1500,6 +1571,7 @@ int main() {
         };
         glUseProgram(playerProgram);
         glUniform1f(damageLocation, 0.0f);
+        glUniform1f(brightnessLocation, 1.0f);
         glUniform1i(glGetUniformLocation(playerProgram, "playerImage"), 0);
         glActiveTexture(GL_TEXTURE0);
         glBindVertexArray(playerVAO);
@@ -1516,8 +1588,8 @@ int main() {
 
         std::vector<float> laneFills;
         std::vector<float> laneBorders;
-        const float laneTops[] = {0.62f, 0.20f, -0.28f};
-        const float laneBottoms[] = {0.20f, -0.28f, -0.82f};
+        const float laneTops[] = {-0.108f, -0.378f, -0.684f};
+        const float laneBottoms[] = {-0.378f, -0.684f, -1.000f};
         for (int lane = 0; lane < 3; ++lane) {
             bool selected = selectedLanes[lane];
             bool hovered = lane == hoveredLane && !isPaused && !isGameOver && !hasWon;

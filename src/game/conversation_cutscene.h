@@ -1,35 +1,30 @@
 #pragma once
 
+struct DialogueLine {
+    const char* speakerTag;
+    const char* line1;
+    const char* line2;
+    int speaker; // 0 = Player (Left), 1 = Enemy (Right)
+};
+
 class ConversationCutscene {
 public:
-    struct Pose {
-        float playerX;
-        float enemyX;
-        float playerY;
-        float enemyY;
-        float playerShakeX;
-        float enemyShakeX;
-        float dialogueY;
-        int speakingCharacter; // 0 = player, 1 = enemy
-        int turn;
-        bool running;
-        bool active;
-    };
-
-    static constexpr float middleLaneY = -0.04f;
-    static constexpr float dialogueY = -0.88f;
-    static constexpr double secondsPerTurn = 3.0;
-    static constexpr double shakeSeconds = 0.55;
-    static constexpr double runSeconds = 1.2;
     static constexpr int turnCount = 6;
-    static constexpr double totalSeconds = runSeconds + turnCount * secondsPerTurn;
+    static constexpr double autoAdvanceSeconds = 4.0;
 
     void start(double currentTime);
-    Pose update(double currentTime);
+    void advance(double currentTime);
+    void update(double currentTime);
     bool isRunning() const;
-    const char* textForTurn(int turn) const;
+
+    int getCurrentTurn() const;
+    int getSpeaker() const;
+    const DialogueLine& getDialogue(int turn) const;
+    const DialogueLine& getCurrentDialogue() const;
+    double getTurnElapsed(double currentTime) const;
 
 private:
-    double startedAt = 0.0;
+    double turnStartTime = 0.0;
+    int currentTurn = 0;
     bool running = false;
 };

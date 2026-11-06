@@ -52,7 +52,7 @@ class playerClass: public EntityClass{
         if (playerType != DEFENSE && isJumping == false && jumpCooldown <= 0) {
             isJumping = true;
             jumpTimer = 45; // Hang time in air (about 0.75 seconds)
-            yOffset = 0.14f; // Hop up in the air
+            yOffset = 0.10f; // Hop up in the air
             crouchDelayTimer = 0;
         }
     }
@@ -68,7 +68,7 @@ class playerClass: public EntityClass{
                 crouchDelayTimer = 8; // Short delay before crouching (about 0.13 seconds)
             } else if (crouchDelayTimer <= 0) {
                 // Grounded and delay passed: crouch down low
-                yOffset = -0.06f;
+                yOffset = -0.05f;
             }
         }
     }

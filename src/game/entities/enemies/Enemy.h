@@ -23,11 +23,11 @@ public:
         speed = 0.0006f;  // Ranged enemies advance steadily while firing
 
         if (lane == 0) {
-            y = 0.41f;    // Top lane
+            y = -0.243f;   // Top roadway lane
         } else if (lane == 1) {
-            y = -0.04f;   // Middle lane
+            y = -0.531f;   // Middle roadway lane
         } else if (lane == 2) {
-            y = -0.55f;   // Bottom lane
+            y = -0.842f;   // Bottom roadway lane
         }
 
         if (type == EASY) {
